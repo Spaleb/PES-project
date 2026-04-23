@@ -1,0 +1,97 @@
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include <sys/ioctl.h>
+    #include <linux/can.h>
+    #include <linux/can/raw.h>
+    #include <net/if.h>
+    #include <stdint.h>
+
+    #define PI_NODE          0x01
+    #define NODE_MC_encoder  0x02
+    #define NODE_MC_matrix   0x03
+    #define NODE_MC_boven   0x04
+    #define NODE_MC_onder   0x05
+    #define MATRIX_LED_ON    0x50
+    #define MATRIX_LED_OFF   0x51
+    #define READ_DISTANCE    0x12
+    #define READ_ACCESS      0x70
+    #define SERVO_ONDER      0xA0
+
+    int main() {
+        int s;
+        struct sockaddr_can addr;
+        struct ifreq ifr;
+        struct can_frame frame;
+
+        // Open CAN socket
+        s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+        if (s < 0) { perror("socket"); return 1; }
+
+        strcpy(ifr.ifr_name, "can0");
+        if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { perror("ioctl"); return 1; }
+
+        addr.can_family = AF_CAN;
+        addr.can_ifindex = ifr.ifr_ifindex;
+
+        if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) { perror("bind"); return 1; }
+
+        while (1) {
+            frame.can_id  = 0x123;
+            frame.can_dlc = 8;
+            frame.data[0] = NODE_MC_encoder;
+            frame.data[1] = PI_NODE;
+            frame.data[2] = READ_DISTANCE;
+            for(int i=3; i<8; i++) frame.data[i] = 0;
+
+            if (write(s, &frame, sizeof(frame)) != sizeof(frame)) {
+                perror("write");
+            }
+
+            // 3️⃣ Lees response
+            int nbytes = read(s, &frame, sizeof(struct can_frame));
+            if (nbytes > 0) {
+                if (frame.data[0] == PI_NODE && frame.data[2] == READ_DISTANCE) {
+                    uint8_t distance = frame.data[4]; // afstand in cm
+                    printf("Afstand gemeten: %d cm\n", distance);
+                    frame.can_id  = 0x123;
+                    frame.can_dlc = 8;
+                    frame.data[0] = NODE_MC_matrix;
+                    frame.data[1] = PI_NODE;   
+                    if(distance < 30) {
+                        frame.data[2] = MATRIX_LED_ON;
+                        printf("LED AAN\n");
+                    } else {
+                        frame.data[2] = MATRIX_LED_OFF;
+                        printf("LED UIT\n");
+                    }
+                    for(int i=3; i<8; i++) frame.data[i] = 0;
+                    write(s, &frame, sizeof(frame));
+                }
+            }
+
+            if (nbytes > 0) {
+                if (frame.data[0] == PI_NODE && frame.data[2] == READ_ACCESS) {
+                    if (frame.data[5] == 0x02){
+                        frame.can_id  = 0x123;
+                        frame.can_dlc = 8;
+                        frame.data[0] = NODE_MC_onder;
+                        frame.data[1] = PI_NODE;   
+                        frame.data[2] = SERVO_ONDER;
+                        frame.data[3] = 0xB4;
+                        for(int i=4; i<8; i++) frame.data[i] = 0;
+                        write(s, &frame, sizeof(frame));
+                    }
+
+                    
+                }
+            }
+
+            usleep(200000); // 200 ms delay tussen metingen
+        }
+
+        close(s);
+        return 0;
+    }

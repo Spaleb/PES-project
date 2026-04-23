@@ -562,22 +562,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			last_source = source;
 			readDistance = 1;
 			break;
-
-//		case TEST_MSG:
-//			// 1. Print the incoming CAN ID to the PC terminal
-//			len = sprintf(uart_buf, "\r\n[RECEIVED FROM PI] ID: 0x%lX | DLC: %ld | Data: ", RxHeader.StdId, RxHeader.DLC);
-//			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-//
-//			// 2. Loop through the data bytes and print them in Hex
-//			for (int i = 0; i < RxHeader.DLC; i++) {
-//				len = sprintf(uart_buf, "%02X ", RxData[i]);
-//				HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-//			}
-//
-//			// 3. Print a new line at the end
-//			len = sprintf(uart_buf, "\r\n");
-//			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-//			break;
 		}
 	}
 }

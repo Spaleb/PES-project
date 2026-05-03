@@ -9,7 +9,8 @@ Regels:
 Zie de volgende link om GitHub te gebruiken in de STM32IDE:
 https://community.st.com/t5/stm32cubeide-mcus/how-to-use-git-branching-while-using-stm32cubeide/td-p/730876
 
-CANBUS REGELS EN AFSPRAKEN 2.0
+````
+**CANBUS REGELS EN AFSPRAKEN 2.0**
 
 CAN-frame:
 CAN_ID  (11-bit)	-> Type bericht
@@ -24,17 +25,17 @@ DATA    (0–8 bytes)	-> Inhoud van het bericht
 
 Indeling van de CAN-ID's:
 
-0x000 – 0x0FF -> CRITICAL / EMERGENCY
-• Hoogste prioriteit op de bus
-• Alleen gebruiken voor:
+**0x000 – 0x0FF -> CRITICAL / EMERGENCY**
+Heeft de hoogste prioriteit op de bus
+Alleen gebruiken voor:
   - Alarm triggers
   - Emergency stop
   - Kritieke fouten
 
-0x1xx -> SENSOREN
-• Wanneer een waarde significant verandert
-• Wanneer een toestand verandert
-• Periodiek als dat nodig is
+**0x1xx -> SENSOREN**
+- Wanneer een waarde significant verandert
+- Wanneer een toestand verandert
+- Periodiek als dat nodig is
 *Een knop is in dit geval een sensor
 
 0x10x - ENCODER PCB
@@ -81,7 +82,7 @@ DATA[1] = state
 DATA[0] = voltage high
 DATA[1] = voltage low
 
-0x2xx — ACTUATOREN 
+**0x2xx — ACTUATOREN** 
 Actuatoren luisteren naar commands op deze IDs.
 *Een LED is ook een actuator
 
@@ -127,12 +128,12 @@ DATA[0] = position Gimbal
 0x231 — Servo boven
 DATA[0] = position Gimbal
 
-0x3xx — COMMANDO'S / REQUESTS
+**0x3xx — COMMANDO'S / REQUESTS**
 0x300 — Sensor request
 DATA[0] = high byte of CAN_ID
 DATA[1] = low byte of CAN_ID
 
-0x4xx — ERRORS / SYSTEM
+**0x4xx — ERRORS / SYSTEM**
 0x400 -> system error
 0x410 -> Encoder PCB error
 0x420 -> Matrix PCB error
@@ -140,8 +141,9 @@ DATA[1] = low byte of CAN_ID
 0x440 -> Gimbal PCB onder error
 0x441-0x499 -> Other errors
 
-0x7F0 – 0x7FE = test/debug range
+**0x7F0 – 0x7FE = test/debug range**
 To be decided
+````
 
 
 

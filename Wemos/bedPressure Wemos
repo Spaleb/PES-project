@@ -1,0 +1,34 @@
+int sensorPin = A0;
+int sensorValue;
+bool bedPressure = false;
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  //Print sensorValue for troubleshooting
+  //Serial.println(sensorValue);
+
+  bool newBedPressure = readBedPressure();
+  handleStatusChange(newBedPressure);
+  delay(1000);
+}
+
+bool readBedPressure(){
+  sensorValue = analogRead(sensorPin);
+  return (sensorValue > 500);
+}
+
+void handleStatusChange(bool newBedPressure){
+  if (newBedPressure != bedPressure){
+    bedPressure = newBedPressure;
+
+    // Printing the change of status
+    if (bedPressure){
+      Serial.println("Er is druk op het bed gedetecteerd");
+    } else {
+      Serial.println("Er is geen druk meer op het bed");
+    }
+  }
+}

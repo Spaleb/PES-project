@@ -183,16 +183,8 @@ int main(void)
 	  Error_Handler();
   }
 
-  // Prepare the Transmit Header (The Envelope)
-  TxHeader.StdId = 0x102;
-  TxHeader.ExtId = 0x00;
-  TxHeader.IDE = CAN_ID_STD;
-  TxHeader.RTR = CAN_RTR_DATA;
-  TxHeader.DLC = 8;
-  TxHeader.TransmitGlobalTime = DISABLE;
-
-  // Print a startup message to the PC so we know it booted safely
-  char boot_msg[] = "\r\n\r\n--- STM32 CAN NODE ALIVE & RUNNING ---\r\n";
+  // Startup message
+  char boot_msg[] = "\r\n\r\n--- STM32 MATRIX PCB RUNNING ---\r\n";
   HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
 
   HAL_TIM_Base_Start(&htim2);
@@ -204,16 +196,12 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	  HCSR04_Read();
-	  HAL_Delay(200);
-
-	  // Local Troubleshooting code, print distance and timer value at serial
+	// Local Troubleshooting code, print distance and timer value at serial
 //	  char msg[25];
 //	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
 //	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
@@ -222,45 +210,8 @@ int main(void)
 //	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
 //	  sprintf(ms, "CNT: %lu\r\n", cnt);
 //	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
+	  transmitDistance();
 	  HAL_Delay(500);
-
-	  if (readDistance){
-
-		  HAL_Delay(50);
-
-		  TxHeader.DLC = 8;
-		  TxData[0] = last_source;
-		  TxData[1] = MY_NODE_ID;
-		  TxData[2] = READ_DISTANCE;
-		  TxData[3] = 0x00;
-		  TxData[4] = (Distance >> 0) & 0xFF;
-		  TxData[5] = (Distance >> 8) & 0xFF;
-		  TxData[6] = (Distance >> 16) & 0xFF;
-		  TxData[7] = (Distance >> 24) & 0xFF;
-
-		  if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-		  {
-		      char err[] = "CAN TX FAILED\r\n";
-		      HAL_UART_Transmit(&huart2, (uint8_t*)err, strlen(err), 100);
-		  }
-		  else
-		  {
-		      char ok[] = "CAN TX OK\r\n";
-		      HAL_UART_Transmit(&huart2, (uint8_t*)ok, strlen(ok), 100);
-		  }
-
-		  uint32_t err = HAL_CAN_GetError(&hcan1);
-
-		  char msg[50];
-		  sprintf(msg, "CAN ERR: %lu\r\n", err);
-		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
-
-		  uint32_t freeLevel = HAL_CAN_GetTxMailboxesFreeLevel(&hcan1);
-		  printf("Free mailboxes: %lu\n", freeLevel);
-
-		  readDistance = 0;
-	  }
-
   }
   /* USER CODE END 3 */
 }

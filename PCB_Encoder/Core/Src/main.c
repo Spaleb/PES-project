@@ -22,16 +22,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NODE_PI         0x01
-#define MY_NODE_ID		0x02
-#define NODE_MC_matrix  0x03
-#define NODE_MC_boven   0x04
-#define NODE_MC_onder   0x05
-#define NODE_BROADCAST  0xFF
-
-#define TEST_MSG		0x00
-#define READ_DISTANCE   0x12
-
+#define CAN_ID_DISTANCE_SENSOR   0x102
+#define CAN_ID_SENSOR_REQUEST    0x300
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -220,35 +212,20 @@ int main(void)
 
 	  HCSR04_Read();
 	  HAL_Delay(200);
-	  char msg[25];
-	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
 
-	  char ms[50];
-	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
-	  sprintf(ms, "CNT: %lu\r\n", cnt);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
+	  // Local Troubleshooting code, print distance and timer value at serial
+//	  char msg[25];
+//	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
+//	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
+//
+//	  char ms[50];
+//	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
+//	  sprintf(ms, "CNT: %lu\r\n", cnt);
+//	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
 	  HAL_Delay(500);
-//
-//	  if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK){
-//		  char tx_msg[] = "-> Distance verstuurd naar de PI\r\n";
-//		  HAL_UART_Transmit(&huart2, (uint8_t*)tx_msg, strlen(tx_msg), 100);
-//	  }
-
-//	  TxHeader.DLC = 8;
-//	  		 		  TxData[0] = last_source;
-//	  		 		  TxData[1] = MY_NODE_ID;
-//	  		 		  TxData[2] = READ_DISTANCE;
-//	  		 		  TxData[3] = 0x00;
-//	  		 		  TxData[4] = 0xFF;
-//	  		 		  TxData[5] = 0xFF;
-//	  		 		  TxData[6] = 0xFF;
-//	  		 		  TxData[7] = 0xFF;
-//
-//	  		  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 
 	  if (readDistance){
-		  HCSR04_Read();
+
 		  HAL_Delay(50);
 
 		  TxHeader.DLC = 8;
@@ -542,30 +519,31 @@ static void MX_GPIO_Init(void)
 
 // This function runs automatically whenever a CAN message arrives
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
-
-		char uart_buf[100];
-		int len;
-
-		uint8_t target = RxData[0];
-		uint8_t source = RxData[1];
-		uint8_t cmd    = RxData[2];
-
-		if (target != MY_NODE_ID && target != NODE_BROADCAST){
-			return;
-		}
-
-		switch(cmd){
-		case READ_DISTANCE:
-			len = sprintf(uart_buf, "\r\n[RECEIVED FROM PI] ID: 0x%lX | DLC: %ld | Data: ", RxHeader.StdId, RxHeader.DLC);
-			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-			last_source = source;
-			readDistance = 1;
-			break;
-		}
-	}
+	// Needs a funtion to respond to requests!
 }
 
+void transmitDistance(){
+	static uint16_t lastDistance = 0;
+
+	HCSR04_Read();
+	HAL_Delay(50);
+
+	uint16_t newDistance = Distance;
+
+	if (abs((int)newDistance - (int)lastDistance) > 10){
+		TxHeader.StdId = CAN_ID_DISTANCE_SENSOR;
+	    TxHeader.IDE   = CAN_ID_STD;
+	    TxHeader.RTR   = CAN_RTR_DATA;
+	    TxHeader.DLC   = 2;
+
+	    TxData[0] = (newDistance >> 8) & 0xFF;
+	    TxData[1] = newDistance & 0xFF;
+
+	    HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+
+	    lastDistance = newDistance;
+	}
+}
 /* USER CODE END 4 */
 
 /**

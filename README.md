@@ -128,12 +128,6 @@ DATA[0] = position Gimbal
 0x231 — Servo boven
 DATA[0] = position Gimbal
 
-0x240 - Wemos Node Lamp
-DATA[0] = red
-DATA[1] = blue
-DATA[2] = green
-DATA[3] = brightness //Ik weet nog niet of deze volgorde klopt.
-
 **0x3xx — COMMANDO'S / REQUESTS**
 0x300 — Sensor request
 DATA[0] = high byte of CAN_ID

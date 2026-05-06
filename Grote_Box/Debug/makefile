@@ -60,8 +60,8 @@ all: main-build
 main-build: Grote_Box.elf secondary-outputs
 
 # Tool invocations
-Grote_Box.elf Grote_Box.map: $(OBJS) $(USER_OBJS) C:\Users\alebr\Documents\School\Jaar\ 2\Semester\ 4\PES\ project\Code\Grote_Box\STM32L432KCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Grote_Box.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\STM32L432KCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Grote_Box.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Grote_Box.elf Grote_Box.map: $(OBJS) $(USER_OBJS) C:\school\HHS\Jaar\ 2\PES-project-main\Grote_Box\STM32L432KCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Grote_Box.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\school\HHS\Jaar 2\PES-project-main\Grote_Box\STM32L432KCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Grote_Box.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

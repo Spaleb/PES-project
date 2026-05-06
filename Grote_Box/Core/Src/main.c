@@ -56,6 +56,16 @@ CAN_RxHeaderTypeDef RxHeader;
 uint8_t             TxData[8];
 uint8_t             RxData[8];
 uint32_t            TxMailbox;
+/**brief Verhoogt de ventilatiestand*/
+/** Huidige ventilatiestand (0 = uit, 1 = laag, 2 = middel, 3 = hoog) */
+uint8_t ventilatieStand = 0;
+
+/** Status van de verwarming (0 = uit, 1 = aan) */
+uint8_t verwarmingAan = 0;
+
+/** Gewenste temperatuur in graden Celsius */
+int gewensteTemperatuur = 20;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,6 +78,61 @@ static void MX_CAN1_Init(void);
 void setLedBar(uint8_t index, uint8_t on);
 void setLed0(uint8_t on);
 void setLed1(uint8_t on);
+
+/**
+ * @brief Verhoogt de ventilatiestand.
+ *
+ * De ventilatie schakelt cyclisch:
+ * 0 -> 1 -> 2 -> 3 -> 0
+ */
+void volgendeVentilatieStand(void);
+
+/**
+ * @brief Zet de verwarming aan of uit.
+ *
+ * Wanneer de functie wordt aangeroepen,
+ * wisselt de status tussen actief en inactief.
+ */
+void toggleVerwarming(void);
+
+/**
+ * @brief Verhoogt de gewenste temperatuur.
+ *
+ * De temperatuur kan maximaal 30 graden worden.
+ */
+void verhoogTemperatuur(void);
+
+/**
+ * @brief Verlaagt de gewenste temperatuur.
+ *
+ * De temperatuur kan minimaal 10 graden worden.
+ */
+void verlaagTemperatuur(void);
+
+/**
+ * @brief Update de ventilatie LED-indicatie.
+ *
+ * LED 0 t/m 2 tonen de huidige ventilatiestand.
+ */
+void updateVentilatieLeds(void);
+
+/**
+ * @brief Update de verwarmings LED-indicatie.
+ *
+ * LED 5 toont of de verwarming actief is.
+ * LED 7 t/m 9 tonen het ingestelde temperatuurniveau.
+ */
+void updateVerwarmingLeds(void);
+
+/**
+ * @brief Stuurt de huidige systeemstatus naar TeraTerm.
+ *
+ * De functie toont:
+ * - ventilatiestand
+ * - status van de verwarming
+ * - gewenste temperatuur
+ */
+void printStatus(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -179,60 +244,109 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	    uint8_t value = 0;
-	    HAL_I2C_Mem_Read(&hi2c1, 0x21 << 1, 0x13, 1, &value, 1, 100);
-	    uint8_t a = HAL_GPIO_ReadPin(GPIOB, LED_Button_0_Pin);
-	    uint8_t b = HAL_GPIO_ReadPin(GPIOA, LED_Button_1_Pin);
+      /**
+ * @brief Leest de status van de MCP23017 GPIO-poort uit.
+ *
+ * De variabele 'value' bevat de actuele status van
+ * de knoppen die via de I2C GPIO-expander zijn aangesloten.
+ */
+	  uint8_t value = 0;
+	  HAL_I2C_Mem_Read(&hi2c1, 0x21 << 1, 0x13, 1, &value, 1, 100);
 
-	    if (!(value & (1 << 2))){
-	    	setLedBar(2,1);
-	    	//HAL_GPIO_WritePin(GPIOA, Servo_Onder_Pin, 1);
-	    }else{
-	    	setLedBar(2,0);
-	    }
 
-	    if(!(value & (1 << 4))){
-	    	setLedBar(1,1);
-	    }else{
-	    	setLedBar(1,0);
-	    }
+      /**
+ * @brief Leest de status van de fysieke knoppen uit.
+ *
+ * Variabele 'a' leest Button 0 op PB1.
+ * Variabele 'b' leest Button 1 op PA9.
+ */
+	  uint8_t a = HAL_GPIO_ReadPin(GPIOB, LED_Button_0_Pin);
+	  uint8_t b = HAL_GPIO_ReadPin(GPIOA, LED_Button_1_Pin);
 
-	    if(!(value & (1 << 6))){
-	    	setLedBar(0,1);
-	    }else{
-	    	setLedBar(0,0);
-	    }
 
-	    if(!a){
-	    	setLedBar(4,1);
-	    }else{
-	    	setLedBar(4,0);
-	    }
+      /**
+ * @brief Verwerkt de ventilatieknop.
+ *
+ * Wanneer knop GPB2 wordt ingedrukt,
+ * schakelt de ventilatie naar de volgende stand.
+ * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
+ */
 
-	    if(!b){
-	    	setLedBar(3,1);
-	    }else{
-	    	setLedBar(3,0);
-	    }
+	  if (!(value & (1 << 2))) {
+	      volgendeVentilatieStand();
+	      updateVentilatieLeds();
+	      printStatus();
+	      HAL_Delay(250);
+	  }
 
-	    // Load the Heartbeat Data
-	    	  TxData[0] = 0x42;
-	    	  TxData[1] = 0x52;
-	    	  TxData[2] = 0x62;
-	    	  TxData[3] = 0x72;
 
-	    	  // Try to send the message to the Raspberry Pi
-	    	  if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK) {
-	    		  // Print to PC to confirm it pushed to the CAN bus
-	    		  char tx_msg[] = "-> Sent Heartbeat to Pi (ID 0x777)\r\n";
-	    		  HAL_UART_Transmit(&huart2, (uint8_t*)tx_msg, strlen(tx_msg), 100);
-	    	  } else {
-	    		  // Print to PC if it failed (e.g. Pi is disconnected)
-	    		  char err_msg[] = "X Failed to send Heartbeat (No ACK from Pi)\r\n";
-	    		  HAL_UART_Transmit(&huart2, (uint8_t*)err_msg, strlen(err_msg), 100);
-	    	  }
+      /**
+ * @brief Verwerkt de verwarmingsknop.
+ *
+ * Wanneer knop GPB4 wordt ingedrukt,
+ * wordt de verwarming aan of uit gezet.
+ * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
+ */
+	  
+	  if (!(value & (1 << 4))) {
+	      toggleVerwarming();
+	      updateVerwarmingLeds();
+	      printStatus();
+	      HAL_Delay(250);
+	  }
 
-	    	  HAL_Delay(500);
+      /**
+ * @brief Verhoogt de gewenste temperatuur.
+ *
+ * Wanneer knop GPB6 wordt ingedrukt,
+ * stijgt de gewenste temperatuur met 1 graad Celsius.
+ * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
+ */
+	 
+	  if (!(value & (1 << 6))) {
+	      verhoogTemperatuur();
+	      updateVerwarmingLeds();
+	      printStatus();
+	      HAL_Delay(250);
+	  }
+
+      /**
+ * @brief Verlaagt de gewenste temperatuur.
+ *
+ * Wanneer knop PB1 wordt ingedrukt,
+ * daalt de gewenste temperatuur met 1 graad Celsius.
+ * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
+ */
+
+	  if (!a) {
+	      verlaagTemperatuur();
+	      updateVerwarmingLeds();
+	      printStatus();
+	      HAL_Delay(250);
+	  }
+
+
+
+	  HAL_Delay(50);
+
+//    Load the Heartbeat Data
+// 	  TxData[0] = 0x42;
+//	  TxData[1] = 0x52;
+//	  TxData[2] = 0x62;
+//    TxData[3] = 0x72;
+//
+//	    	  // Try to send the message to the Raspberry Pi
+//	    	  if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK) {
+//	    		  // Print to PC to confirm it pushed to the CAN bus
+//	    		  char tx_msg[] = "-> Sent Heartbeat to Pi (ID 0x777)\r\n";
+//	    		  HAL_UART_Transmit(&huart2, (uint8_t*)tx_msg, strlen(tx_msg), 100);
+//	    	  } else {
+//	    		  // Print to PC if it failed (e.g. Pi is disconnected)
+//	    		  char err_msg[] = "X Failed to send Heartbeat (No ACK from Pi)\r\n";
+//	    		  HAL_UART_Transmit(&huart2, (uint8_t*)err_msg, strlen(err_msg), 100);
+//	    	  }
+
+//	    	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -483,6 +597,69 @@ void setLedBar(uint8_t index, uint8_t on){
 		HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x13, 1, &ledsB, 1, 100);
 	}
 
+}
+
+
+void volgendeVentilatieStand(void)
+{
+    ventilatieStand++;
+
+    if (ventilatieStand > 3)
+    {
+        ventilatieStand = 0;
+    }
+}
+
+void toggleVerwarming(void)
+{
+    verwarmingAan = !verwarmingAan;
+}
+
+void verhoogTemperatuur(void)
+{
+    if (gewensteTemperatuur < 30)
+    {
+        gewensteTemperatuur++;
+    }
+}
+
+void verlaagTemperatuur(void)
+{
+    if (gewensteTemperatuur > 10)
+    {
+        gewensteTemperatuur--;
+    }
+}
+
+void updateVentilatieLeds(void)
+{
+    setLedBar(0, ventilatieStand >= 1);
+    setLedBar(1, ventilatieStand >= 2);
+    setLedBar(2, ventilatieStand >= 3);
+}
+
+void updateVerwarmingLeds(void)
+{
+    setLedBar(5, verwarmingAan);
+    setLedBar(7, gewensteTemperatuur >= 21);
+    setLedBar(8, gewensteTemperatuur >= 24);
+    setLedBar(9, gewensteTemperatuur >= 27);
+}
+
+void printStatus(void)
+{
+    char buffer[150];
+
+    sprintf(buffer,
+        "\r\n===== SYSTEEM STATUS =====\r\n"
+        "Ventilatie stand: %d\r\n"
+        "Verwarming: %s\r\n"
+        "Gewenste temperatuur: %d C\r\n",
+        ventilatieStand,
+        verwarmingAan ? "AAN" : "UIT",
+        gewensteTemperatuur);
+
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100);
 }
 
 // This function runs automatically whenever a CAN message arrives

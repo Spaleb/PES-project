@@ -1,0 +1,343 @@
+\doxysection{Core/\+\+Src/\+main.c File Reference}
+\hypertarget{main_8c}{}\label{main_8c}\index{Core/Src/main.c@{Core/Src/main.c}}
+
+
+:\+ Main program body  
+
+
+{\ttfamily \+\#include "{}main.\+h"{}}\newline
+{\ttfamily \+\#include $<$stdio.\+h$>$}\newline
+{\ttfamily \+\#include $<$string.\+h$>$}\newline
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \doxymbox{\hyperlink{main_8c_a70af21c671abfcc773614a9a4f63d920}{System\+Clock\+\_\+\+Config}} (void)
+\begin{DoxyCompactList}\small\item\em System Clock Configuration. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_addeb6668671cb619463a33221992c95b}{set\+Led\+Bar}} (uint8\+\_\+t index, uint8\+\_\+t on)
+\item 
+void \doxymbox{\hyperlink{main_8c_a5c5e6c66bd503bbd7bdf8b250ca8ed8d}{set\+Led0}} (uint8\+\_\+t on)
+\item 
+void \doxymbox{\hyperlink{main_8c_a820be244167e1572072671f3451fba5c}{set\+Led1}} (uint8\+\_\+t on)
+\item 
+void \doxymbox{\hyperlink{main_8c_ab0c81b0c60ef76c19c088d3522623f59}{volgende\+Ventilatie\+Stand}} (void)
+\begin{DoxyCompactList}\small\item\em Verhoogt de ventilatiestand. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_a9f31fb701dc6d57638256af1056fcb81}{toggle\+Verwarming}} (void)
+\begin{DoxyCompactList}\small\item\em Zet de verwarming aan of uit. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_ab696c6e61ad910f837fb013417238b84}{verhoog\+Temperatuur}} (void)
+\begin{DoxyCompactList}\small\item\em Verhoogt de gewenste temperatuur. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_a01234e4bd85bdd5ff30304691c23f851}{verlaag\+Temperatuur}} (void)
+\begin{DoxyCompactList}\small\item\em Verlaagt de gewenste temperatuur. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_a1592f2d69ef41710a04f05fd6ec3ebb4}{update\+Ventilatie\+Leds}} (void)
+\begin{DoxyCompactList}\small\item\em Update de ventilatie LED-\/indicatie. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_a22c6ecc74a9ccc73063c1d4589337302}{update\+Verwarming\+Leds}} (void)
+\begin{DoxyCompactList}\small\item\em Update de verwarmings LED-\/indicatie. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_aaf090dbb73ff05ddbd763653427c49ee}{print\+Status}} (void)
+\begin{DoxyCompactList}\small\item\em Stuurt de huidige systeemstatus naar Tera\+Term. \end{DoxyCompactList}\item 
+int \doxymbox{\hyperlink{main_8c_a840291bc02cba5474a4cb46a9b9566fe}{main}} (void)
+\begin{DoxyCompactList}\small\item\em The application entry point. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_a7368d39e78009c017d6f81ccf33b9b2c}{HAL\+\_\+\+CAN\+\_\+\+Rx\+Fifo0\+Msg\+Pending\+Callback}} (CAN\+\_\+\+Handle\+Type\+Def \texorpdfstring{$\ast$}{*}hcan)
+\item 
+void \doxymbox{\hyperlink{main_8c_a1730ffe1e560465665eb47d9264826f9}{Error\+\_\+\+Handler}} (void)
+\begin{DoxyCompactList}\small\item\em This function is executed in case of error occurrence. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+CAN\+\_\+\+Handle\+Type\+Def \doxymbox{\hyperlink{main_8c_a1618d731d18d69e906e8a357b7cd3c8d}{hcan1}}
+\item 
+I2\+C\+\_\+\+Handle\+Type\+Def \doxymbox{\hyperlink{main_8c_af7b2c26e44dadaaa798a5c3d82914ba7}{hi2c1}}
+\item 
+UART\+\_\+\+Handle\+Type\+Def \doxymbox{\hyperlink{main_8c_aa9479c261d65eecedd3d9582f7f0f89c}{huart2}}
+\item 
+uint8\+\_\+t \doxymbox{\hyperlink{main_8c_ad2542090160d695aae02cf8f1999fbca}{ledsA}} = 0x00
+\item 
+uint8\+\_\+t \doxymbox{\hyperlink{main_8c_a228c948f33ee7902bdcf1a8bc6d0f43a}{ledsB}} = 0x00
+\item 
+CAN\+\_\+\+Tx\+Header\+Type\+Def \doxymbox{\hyperlink{main_8c_a3e35a666d459f2ac92fc7c35334ff0ff}{Tx\+Header}}
+\item 
+CAN\+\_\+\+Rx\+Header\+Type\+Def \doxymbox{\hyperlink{main_8c_a6ee6e13063b860648180eea65852cc71}{Rx\+Header}}
+\item 
+uint8\+\_\+t \doxymbox{\hyperlink{main_8c_af553c31425b32bd9c020380c942ed3bd}{Tx\+Data}} \+[8]\+
+\item 
+uint8\+\_\+t \doxymbox{\hyperlink{main_8c_a14629afcc7f0b2d62c2b617b07d98184}{Rx\+Data}} \+[8]\+
+\item 
+uint32\+\_\+t \doxymbox{\hyperlink{main_8c_aedd1e4ac418a9697f9f41a2713d49569}{Tx\+Mailbox}}
+\item 
+uint8\+\_\+t \doxymbox{\hyperlink{main_8c_a1bc111fd1d91f048c078fabbe854b461}{ventilatie\+Stand}} = 0
+\item 
+uint8\+\_\+t \doxymbox{\hyperlink{main_8c_a8f0d3eb845a7ee2380bee7cb2e49e85e}{verwarming\+Aan}} = 0
+\item 
+int \doxymbox{\hyperlink{main_8c_a172f6da8195d3ad369c78b58bd2d8137}{gewenste\+Temperatuur}} = 20
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+:\+ Main program body 
+
+\begin{DoxyAttention}{Attention}
+
+\end{DoxyAttention}
+Copyright (c) 2026 STMicroelectronics. All rights reserved.
+
+This software is licensed under terms that can be found in the LICENSE file in the root directory of this software component. If no LICENSE file comes with this software, it is provided AS-\/\+IS. 
+
+\label{main_8c_doc-func-members}
+\Hypertarget{main_8c_doc-func-members}
+\doxysubsection{Function Documentation}
+\Hypertarget{main_8c_a1730ffe1e560465665eb47d9264826f9}\index{main.c@{main.c}!Error\_Handler@{Error\_Handler}}
+\index{Error\_Handler@{Error\_Handler}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{Error\_Handler()}{Error\_Handler()}}
+{\footnotesize\ttfamily \label{main_8c_a1730ffe1e560465665eb47d9264826f9} 
+void Error\+\_\+\+Handler (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+This function is executed in case of error occurrence. 
+
+
+\begin{DoxyRetVals}{Return values}
+{\em None} & \\
+\hline
+\end{DoxyRetVals}
+\Hypertarget{main_8c_a7368d39e78009c017d6f81ccf33b9b2c}\index{main.c@{main.c}!HAL\_CAN\_RxFifo0MsgPendingCallback@{HAL\_CAN\_RxFifo0MsgPendingCallback}}
+\index{HAL\_CAN\_RxFifo0MsgPendingCallback@{HAL\_CAN\_RxFifo0MsgPendingCallback}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{HAL\_CAN\_RxFifo0MsgPendingCallback()}{HAL\_CAN\_RxFifo0MsgPendingCallback()}}
+{\footnotesize\ttfamily \label{main_8c_a7368d39e78009c017d6f81ccf33b9b2c} 
+void HAL\+\_\+\+CAN\+\_\+\+Rx\+Fifo0\+Msg\+Pending\+Callback (\begin{DoxyParamCaption}\item[{CAN\+\_\+\+Handle\+Type\+Def \texorpdfstring{$\ast$}{*}}]{hcan}{}\end{DoxyParamCaption})}
+
+\Hypertarget{main_8c_a840291bc02cba5474a4cb46a9b9566fe}\index{main.c@{main.c}!main@{main}}
+\index{main@{main}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{main()}{main()}}
+{\footnotesize\ttfamily \label{main_8c_a840291bc02cba5474a4cb46a9b9566fe} 
+int main (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+The application entry point. 
+
+
+\begin{DoxyRetVals}{Return values}
+{\em int} & \\
+\hline
+\end{DoxyRetVals}
+Leest de status van de MCP23017 GPIO-\/poort uit.
+
+De variabele \textquotesingle{}value\textquotesingle{} bevat de actuele status van de knoppen die via de I2C GPIO-\/expander zijn aangesloten.
+
+Leest de status van de fysieke knoppen uit.
+
+Variabele \textquotesingle{}a\textquotesingle{} leest Button 0 op PB1. Variabele \textquotesingle{}b\textquotesingle{} leest Button 1 op PA9.
+
+Verwerkt de ventilatieknop.
+
+Wanneer knop GPB2 wordt ingedrukt, schakelt de ventilatie naar de volgende stand. Daarna worden de LED-\/indicatie en systeemstatus bijgewerkt.
+
+Verwerkt de verwarmingsknop.
+
+Wanneer knop GPB4 wordt ingedrukt, wordt de verwarming aan of uit gezet. Daarna worden de LED-\/indicatie en systeemstatus bijgewerkt.
+
+Verhoogt de gewenste temperatuur.
+
+Wanneer knop GPB6 wordt ingedrukt, stijgt de gewenste temperatuur met 1 graad Celsius. Daarna worden de LED-\/indicatie en systeemstatus bijgewerkt.
+
+Verlaagt de gewenste temperatuur.
+
+Wanneer knop PB1 wordt ingedrukt, daalt de gewenste temperatuur met 1 graad Celsius. Daarna worden de LED-\/indicatie en systeemstatus bijgewerkt.\Hypertarget{main_8c_aaf090dbb73ff05ddbd763653427c49ee}\index{main.c@{main.c}!printStatus@{printStatus}}
+\index{printStatus@{printStatus}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{printStatus()}{printStatus()}}
+{\footnotesize\ttfamily \label{main_8c_aaf090dbb73ff05ddbd763653427c49ee} 
+void print\+Status (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Stuurt de huidige systeemstatus naar Tera\+Term. 
+
+De functie toont:\+
+\begin{DoxyItemize}
+\item ventilatiestand
+\item status van de verwarming
+\item gewenste temperatuur 
+\end{DoxyItemize}\Hypertarget{main_8c_a5c5e6c66bd503bbd7bdf8b250ca8ed8d}\index{main.c@{main.c}!setLed0@{setLed0}}
+\index{setLed0@{setLed0}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{setLed0()}{setLed0()}}
+{\footnotesize\ttfamily \label{main_8c_a5c5e6c66bd503bbd7bdf8b250ca8ed8d} 
+void set\+Led0 (\begin{DoxyParamCaption}\item[{uint8\+\_\+t}]{on}{}\end{DoxyParamCaption})}
+
+\Hypertarget{main_8c_a820be244167e1572072671f3451fba5c}\index{main.c@{main.c}!setLed1@{setLed1}}
+\index{setLed1@{setLed1}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{setLed1()}{setLed1()}}
+{\footnotesize\ttfamily \label{main_8c_a820be244167e1572072671f3451fba5c} 
+void set\+Led1 (\begin{DoxyParamCaption}\item[{uint8\+\_\+t}]{on}{}\end{DoxyParamCaption})}
+
+\Hypertarget{main_8c_addeb6668671cb619463a33221992c95b}\index{main.c@{main.c}!setLedBar@{setLedBar}}
+\index{setLedBar@{setLedBar}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{setLedBar()}{setLedBar()}}
+{\footnotesize\ttfamily \label{main_8c_addeb6668671cb619463a33221992c95b} 
+void set\+Led\+Bar (\begin{DoxyParamCaption}\item[{uint8\+\_\+t}]{index}{, }\item[{uint8\+\_\+t}]{on}{}\end{DoxyParamCaption})}
+
+\Hypertarget{main_8c_a70af21c671abfcc773614a9a4f63d920}\index{main.c@{main.c}!SystemClock\_Config@{SystemClock\_Config}}
+\index{SystemClock\_Config@{SystemClock\_Config}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{SystemClock\_Config()}{SystemClock\_Config()}}
+{\footnotesize\ttfamily \label{main_8c_a70af21c671abfcc773614a9a4f63d920} 
+void System\+Clock\+\_\+\+Config (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+System Clock Configuration. 
+
+
+\begin{DoxyRetVals}{Return values}
+{\em None} & \\
+\hline
+\end{DoxyRetVals}
+Configure the main internal regulator output voltage
+
+Configure LSE Drive Capability
+
+Initializes the RCC Oscillators according to the specified parameters in the RCC\+\_\+\+Osc\+Init\+Type\+Def structure.
+
+Initializes the CPU, AHB and APB buses clocks
+
+Enable MSI Auto calibration\Hypertarget{main_8c_a9f31fb701dc6d57638256af1056fcb81}\index{main.c@{main.c}!toggleVerwarming@{toggleVerwarming}}
+\index{toggleVerwarming@{toggleVerwarming}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{toggleVerwarming()}{toggleVerwarming()}}
+{\footnotesize\ttfamily \label{main_8c_a9f31fb701dc6d57638256af1056fcb81} 
+void toggle\+Verwarming (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Zet de verwarming aan of uit. 
+
+Wanneer de functie wordt aangeroepen, wisselt de status tussen actief en inactief. \Hypertarget{main_8c_a1592f2d69ef41710a04f05fd6ec3ebb4}\index{main.c@{main.c}!updateVentilatieLeds@{updateVentilatieLeds}}
+\index{updateVentilatieLeds@{updateVentilatieLeds}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{updateVentilatieLeds()}{updateVentilatieLeds()}}
+{\footnotesize\ttfamily \label{main_8c_a1592f2d69ef41710a04f05fd6ec3ebb4} 
+void update\+Ventilatie\+Leds (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Update de ventilatie LED-\/indicatie. 
+
+LED 0 t/\+m 2 tonen de huidige ventilatiestand. \Hypertarget{main_8c_a22c6ecc74a9ccc73063c1d4589337302}\index{main.c@{main.c}!updateVerwarmingLeds@{updateVerwarmingLeds}}
+\index{updateVerwarmingLeds@{updateVerwarmingLeds}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{updateVerwarmingLeds()}{updateVerwarmingLeds()}}
+{\footnotesize\ttfamily \label{main_8c_a22c6ecc74a9ccc73063c1d4589337302} 
+void update\+Verwarming\+Leds (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Update de verwarmings LED-\/indicatie. 
+
+LED 5 toont of de verwarming actief is. LED 7 t/\+m 9 tonen het ingestelde temperatuurniveau. \Hypertarget{main_8c_ab696c6e61ad910f837fb013417238b84}\index{main.c@{main.c}!verhoogTemperatuur@{verhoogTemperatuur}}
+\index{verhoogTemperatuur@{verhoogTemperatuur}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{verhoogTemperatuur()}{verhoogTemperatuur()}}
+{\footnotesize\ttfamily \label{main_8c_ab696c6e61ad910f837fb013417238b84} 
+void verhoog\+Temperatuur (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Verhoogt de gewenste temperatuur. 
+
+De temperatuur kan maximaal 30 graden worden. \Hypertarget{main_8c_a01234e4bd85bdd5ff30304691c23f851}\index{main.c@{main.c}!verlaagTemperatuur@{verlaagTemperatuur}}
+\index{verlaagTemperatuur@{verlaagTemperatuur}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{verlaagTemperatuur()}{verlaagTemperatuur()}}
+{\footnotesize\ttfamily \label{main_8c_a01234e4bd85bdd5ff30304691c23f851} 
+void verlaag\+Temperatuur (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Verlaagt de gewenste temperatuur. 
+
+De temperatuur kan minimaal 10 graden worden. \Hypertarget{main_8c_ab0c81b0c60ef76c19c088d3522623f59}\index{main.c@{main.c}!volgendeVentilatieStand@{volgendeVentilatieStand}}
+\index{volgendeVentilatieStand@{volgendeVentilatieStand}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{volgendeVentilatieStand()}{volgendeVentilatieStand()}}
+{\footnotesize\ttfamily \label{main_8c_ab0c81b0c60ef76c19c088d3522623f59} 
+void volgende\+Ventilatie\+Stand (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Verhoogt de ventilatiestand. 
+
+De ventilatie schakelt cyclisch:\+ 0 -\/\texorpdfstring{$>$}{>} 1 -\/\texorpdfstring{$>$}{>} 2 -\/\texorpdfstring{$>$}{>} 3 -\/\texorpdfstring{$>$}{>} 0 
+
+\label{main_8c_doc-var-members}
+\Hypertarget{main_8c_doc-var-members}
+\doxysubsection{Variable Documentation}
+\Hypertarget{main_8c_a172f6da8195d3ad369c78b58bd2d8137}\index{main.c@{main.c}!gewensteTemperatuur@{gewensteTemperatuur}}
+\index{gewensteTemperatuur@{gewensteTemperatuur}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{gewensteTemperatuur}{gewensteTemperatuur}}
+{\footnotesize\ttfamily \label{main_8c_a172f6da8195d3ad369c78b58bd2d8137} 
+int gewenste\+Temperatuur = 20}
+
+Gewenste temperatuur in graden Celsius \Hypertarget{main_8c_a1618d731d18d69e906e8a357b7cd3c8d}\index{main.c@{main.c}!hcan1@{hcan1}}
+\index{hcan1@{hcan1}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{hcan1}{hcan1}}
+{\footnotesize\ttfamily \label{main_8c_a1618d731d18d69e906e8a357b7cd3c8d} 
+CAN\+\_\+\+Handle\+Type\+Def hcan1}
+
+\Hypertarget{main_8c_af7b2c26e44dadaaa798a5c3d82914ba7}\index{main.c@{main.c}!hi2c1@{hi2c1}}
+\index{hi2c1@{hi2c1}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{hi2c1}{hi2c1}}
+{\footnotesize\ttfamily \label{main_8c_af7b2c26e44dadaaa798a5c3d82914ba7} 
+I2\+C\+\_\+\+Handle\+Type\+Def hi2c1}
+
+\Hypertarget{main_8c_aa9479c261d65eecedd3d9582f7f0f89c}\index{main.c@{main.c}!huart2@{huart2}}
+\index{huart2@{huart2}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{huart2}{huart2}}
+{\footnotesize\ttfamily \label{main_8c_aa9479c261d65eecedd3d9582f7f0f89c} 
+UART\+\_\+\+Handle\+Type\+Def huart2}
+
+\Hypertarget{main_8c_ad2542090160d695aae02cf8f1999fbca}\index{main.c@{main.c}!ledsA@{ledsA}}
+\index{ledsA@{ledsA}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{ledsA}{ledsA}}
+{\footnotesize\ttfamily \label{main_8c_ad2542090160d695aae02cf8f1999fbca} 
+uint8\+\_\+t ledsA = 0x00}
+
+\Hypertarget{main_8c_a228c948f33ee7902bdcf1a8bc6d0f43a}\index{main.c@{main.c}!ledsB@{ledsB}}
+\index{ledsB@{ledsB}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{ledsB}{ledsB}}
+{\footnotesize\ttfamily \label{main_8c_a228c948f33ee7902bdcf1a8bc6d0f43a} 
+uint8\+\_\+t ledsB = 0x00}
+
+\Hypertarget{main_8c_a14629afcc7f0b2d62c2b617b07d98184}\index{main.c@{main.c}!RxData@{RxData}}
+\index{RxData@{RxData}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{RxData}{RxData}}
+{\footnotesize\ttfamily \label{main_8c_a14629afcc7f0b2d62c2b617b07d98184} 
+uint8\+\_\+t Rx\+Data\+[8]\+}
+
+\Hypertarget{main_8c_a6ee6e13063b860648180eea65852cc71}\index{main.c@{main.c}!RxHeader@{RxHeader}}
+\index{RxHeader@{RxHeader}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{RxHeader}{RxHeader}}
+{\footnotesize\ttfamily \label{main_8c_a6ee6e13063b860648180eea65852cc71} 
+CAN\+\_\+\+Rx\+Header\+Type\+Def Rx\+Header}
+
+\Hypertarget{main_8c_af553c31425b32bd9c020380c942ed3bd}\index{main.c@{main.c}!TxData@{TxData}}
+\index{TxData@{TxData}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{TxData}{TxData}}
+{\footnotesize\ttfamily \label{main_8c_af553c31425b32bd9c020380c942ed3bd} 
+uint8\+\_\+t Tx\+Data\+[8]\+}
+
+\Hypertarget{main_8c_a3e35a666d459f2ac92fc7c35334ff0ff}\index{main.c@{main.c}!TxHeader@{TxHeader}}
+\index{TxHeader@{TxHeader}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{TxHeader}{TxHeader}}
+{\footnotesize\ttfamily \label{main_8c_a3e35a666d459f2ac92fc7c35334ff0ff} 
+CAN\+\_\+\+Tx\+Header\+Type\+Def Tx\+Header}
+
+\Hypertarget{main_8c_aedd1e4ac418a9697f9f41a2713d49569}\index{main.c@{main.c}!TxMailbox@{TxMailbox}}
+\index{TxMailbox@{TxMailbox}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{TxMailbox}{TxMailbox}}
+{\footnotesize\ttfamily \label{main_8c_aedd1e4ac418a9697f9f41a2713d49569} 
+uint32\+\_\+t Tx\+Mailbox}
+
+\Hypertarget{main_8c_a1bc111fd1d91f048c078fabbe854b461}\index{main.c@{main.c}!ventilatieStand@{ventilatieStand}}
+\index{ventilatieStand@{ventilatieStand}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{ventilatieStand}{ventilatieStand}}
+{\footnotesize\ttfamily \label{main_8c_a1bc111fd1d91f048c078fabbe854b461} 
+uint8\+\_\+t ventilatie\+Stand = 0}
+
+brief Verhoogt de ventilatiestand Huidige ventilatiestand (0 = uit, 1 = laag, 2 = middel, 3 = hoog) \Hypertarget{main_8c_a8f0d3eb845a7ee2380bee7cb2e49e85e}\index{main.c@{main.c}!verwarmingAan@{verwarmingAan}}
+\index{verwarmingAan@{verwarmingAan}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{verwarmingAan}{verwarmingAan}}
+{\footnotesize\ttfamily \label{main_8c_a8f0d3eb845a7ee2380bee7cb2e49e85e} 
+uint8\+\_\+t verwarming\+Aan = 0}
+
+Status van de verwarming (0 = uit, 1 = aan) 

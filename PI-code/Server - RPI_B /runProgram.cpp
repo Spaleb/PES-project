@@ -83,6 +83,7 @@ void runProgram::canMessageHandler(const struct can_frame& frame){
                 (frame.data[0] << 8) | frame.data[1];
 
             std::cout << "Distance: " << distance << " cm\n";
+            tcp.sendClient("Distance received\n");
             break;
         }
 

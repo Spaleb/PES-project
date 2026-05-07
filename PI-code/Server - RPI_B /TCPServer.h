@@ -15,6 +15,7 @@ public:
     int getCLientFd() const;
     int getServerFd() const;
     int readClient(char* buffer, int size);
+    int sendClient(const std::string& msg);
 
     ~TCPServer();
 

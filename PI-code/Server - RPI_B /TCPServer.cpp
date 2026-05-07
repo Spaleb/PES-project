@@ -84,6 +84,10 @@ int TCPServer::readClient(char* buffer, int size){
     return read(client_fd, buffer, size);
 }
 
+int TCPServer::sendClient(const std::string& msg) {
+    return send(client_fd, msg.c_str(), msg.size(), 0);
+}
+
 /**
  * @brief Destroy the TCPServer::TCPServer object
  * 

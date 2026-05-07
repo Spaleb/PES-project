@@ -1,6 +1,8 @@
 #ifndef TCPSERVER_H
 #define TCPSERVER_H
 
+#include <string>
+
 /**
  * @brief TCPServer class. Listens for connections and accepts client
  * that want to connect. 

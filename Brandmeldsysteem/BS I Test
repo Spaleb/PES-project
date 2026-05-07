@@ -31,10 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NODE_PI           0x01 //PI
-#define NODE_BRAND        0x07 //Deze STM
-
-#define CMD_BRAND_ALARM   0x80 //CAN commando voor brandalarm.
+#define CAN_ID_BRAND_ALARM        0x120
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -119,11 +116,11 @@ int main(void)
   HAL_CAN_ConfigFilter(&hcan, &filter);
   HAL_CAN_Start(&hcan);
 
-  //Bereid uitgaande berichten voor.
-  TxHeader.StdId = 0x300;
-  TxHeader.IDE   = CAN_ID_STD;
-  TxHeader.RTR   = CAN_RTR_DATA;
-  TxHeader.DLC   = 8;
+  //Bereid uitgaande berichten voor. Deze worden momenteel al gezet in de functie SendBrandAlarm en zijn hier nu niet nodig.
+  //TxHeader.StdId = 0x300;
+  //TxHeader.IDE   = CAN_ID_STD;
+  //TxHeader.RTR   = CAN_RTR_DATA;
+  //TxHeader.DLC   = 8;
 
   /* USER CODE END 2 */
 
@@ -197,24 +194,22 @@ static void MX_CAN_Init(void)
   /* USER CODE END CAN_Init 0 */
 
   /* USER CODE BEGIN CAN_Init 1 */
-
+	hcan.Instance = CAN1;
+	hcan.Init.Prescaler = 10; //Was 16, maar blijkbaar moeten alle CAN nodes dezelfde prescaler hebben.
+	hcan.Init.Mode = CAN_MODE_NORMAL;
+	hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
+	hcan.Init.TimeSeg1 = CAN_BS1_13TQ; //Was 1TQ, maar moet gelijk zijn voor alle nodes.
+	hcan.Init.TimeSeg2 = CAN_BS2_2TQ; //Was 1TQ, maar moet gelijk zijn voor alle nodes.
+	hcan.Init.TimeTriggeredMode = DISABLE;
+	hcan.Init.AutoBusOff = DISABLE;
+	hcan.Init.AutoWakeUp = DISABLE;
+    hcan.Init.AutoRetransmission = DISABLE;
+	hcan.Init.ReceiveFifoLocked = DISABLE;
+    hcan.Init.TransmitFifoPriority = DISABLE;
+	if (HAL_CAN_Init(&hcan) != HAL_OK)
+	    Error_Handler();
   /* USER CODE END CAN_Init 1 */
-  hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 10; //Was 16, maar blijkbaar moeten alle CAN nodes dezelfde prescaler hebben.
-  hcan.Init.Mode = CAN_MODE_NORMAL;
-  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_13TQ; //Was 1TQ, maar moet gelijk zijn voor alle nodes.
-  hcan.Init.TimeSeg2 = CAN_BS2_2TQ; //Was 1TQ, maar moet gelijk zijn voor alle nodes.
-  hcan.Init.TimeTriggeredMode = DISABLE;
-  hcan.Init.AutoBusOff = DISABLE;
-  hcan.Init.AutoWakeUp = DISABLE;
-  hcan.Init.AutoRetransmission = DISABLE;
-  hcan.Init.ReceiveFifoLocked = DISABLE;
-  hcan.Init.TransmitFifoPriority = DISABLE;
-  if (HAL_CAN_Init(&hcan) != HAL_OK)
-  {
-    Error_Handler();
-  }
+
   /* USER CODE BEGIN CAN_Init 2 */
 
   /* USER CODE END CAN_Init 2 */
@@ -283,8 +278,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Automatisch_Pin Handmatig_Pin */
-  GPIO_InitStruct.Pin = Automatisch_Pin|Handmatig_Pin;
+  /*Configure GPIO pins : Automatisch_Pin Handmatig_Pin PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -295,6 +290,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -309,26 +308,23 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     if (brandActief)
         return; //Er is al brand gemeld / brandstatus is al aan, er is niet opnieuw reactie nodig.
 
-    if (GPIO_Pin == Automatisch_Pin || GPIO_Pin == Handmatig_Pin) //Als via 1 van de wegen brand wordt gemeld:
+    if (GPIO_Pin == GPIO_PIN_8) //Als handmatig via de knop brand wordt gemeld.
     {
         brandActief = 1; //Zet de status actief.
         sendBrandAlarm(); //Roep de functie aan.
     }
 }
 
-
 void sendBrandAlarm(void)
 {
-    TxData[0] = NODE_PI; //Target
-    TxData[1] = NODE_BRAND; //Source
-    TxData[2] = CMD_BRAND_ALARM; //Commando
-    TxData[3] = 0x01; //Status wordt dat er brand gemeld is.
-    TxData[4] = 0x00;
-    TxData[5] = 0x00;
-    TxData[6] = 0x00;
-    TxData[7] = 0x00;
+	TxHeader.StdId = CAN_ID_BRAND_ALARM; //Het ID van de sensor dat verantwoordelijk wordt voor registeren van brand.
+	TxHeader.IDE   = CAN_ID_STD; //Constante.
+	TxHeader.RTR   = CAN_RTR_DATA; //Constante
+	TxHeader.DLC   = 1; //Het aantal databits dat verzonden wordt.
 
-    HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxBuffer);
+	TxData[0] = 0x01;  //Data met waarde voor registratie van brand.
+
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxBuffer); // Versturen van dat er brand geregistreerd is.
 }
 /* USER CODE END 4 */
 

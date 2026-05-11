@@ -7,7 +7,7 @@ Regels:
 - Werk AUB vanuit de Development branch
 
 Zie de volgende link om GitHub te gebruiken in de STM32IDE:
-https://community.st.com/t5/stm32cubeide-mcus/how-to-use-git-branching-while-using-stm32cubeide/td-p/730876
+[https://community.st.com/t5/stm32cubeide-mcus/how-to-use-git-branching-while-using-stm32cubeide/td-p/730876](https://community.st.com/t5/stm32-mcus/how-to-use-github-with-stm32cubeide/ta-p/793250)
 
 ````
 **CANBUS REGELS EN AFSPRAKEN 2.0**

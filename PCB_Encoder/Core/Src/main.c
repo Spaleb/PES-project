@@ -184,7 +184,7 @@ int main(void)
   }
 
   // Startup message
-  char boot_msg[] = "\r\n\r\n--- STM32 MATRIX PCB RUNNING ---\r\n";
+  char boot_msg[] = "\r\n\r\n--- STM32 ENCODER PCB RUNNING ---\r\n";
   HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
 
   HAL_TIM_Base_Start(&htim2);
@@ -482,6 +482,10 @@ void transmitDistance(){
 	uint16_t newDistance = Distance;
 
 	if (abs((int)newDistance - (int)lastDistance) > 10){
+		char msg[50];
+		sprintf(msg, "Afstand is verstuurd via CAN %d\r\n", Distance);
+		HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
+
 		TxHeader.StdId = CAN_ID_DISTANCE_SENSOR;
 	    TxHeader.IDE   = CAN_ID_STD;
 	    TxHeader.RTR   = CAN_RTR_DATA;

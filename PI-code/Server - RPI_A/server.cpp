@@ -4,32 +4,64 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <iostream>
+#include <cstdio>
+#include <cctype>
+#include <cstring>
+#include <mutex>
 #include <thread>
 #include <vector>
-#include <mutex>
-#include <cstring>
 
-#define PORT 5000
-
-struct Client {
-    int socket;
-    char id;
-};
-
-std::vector<Client> clients;
-std::mutex clientsMutex;
-
+using std::lock_guard;
+using std::mutex;
+using std::thread;
+using std::vector;
 
 /**
- * @brief 
- * 
- * @param client_fd 
+ * @file server.cpp
+ * @brief Implementation of the PI-Wemos TCP server.
+ */
+
+/**
+ * @brief TCP port where the server listens.
+ */
+#define PORT 5000
+
+/**
+ * @brief Size of the buffer for incoming messages.
+ */
+#define BUFFER_SIZE 1024
+
+/**
+ * @brief One client consists of a socket and an ID character.
+ */
+struct Client {
+    int socket; /**< Socket descriptor of the client. */
+    char id;    /**< Unique ID character of the client. */
+};
+
+/**
+ * @brief Stores all connected clients.
+ */
+vector<Client> clients;
+
+/**
+ * @brief Protects access to the client list across threads.
+ */
+mutex clientsMutex;
+
+/**
+ * @brief Process the connection of a single client.
+ *
+ * This function reads the first message from the client to determine the
+ * client ID, stores the client in the global list, and then processes
+ * incoming messages until the connection is closed.
+ *
+ * @param client_fd Socket descriptor of the connected client.
  */
 void handleClient(int client_fd) {
-    char buffer[1024];
+    char buffer[BUFFER_SIZE];
 
-    int n = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+    int n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
     if (n <= 0) {
         close(client_fd);
         return;
@@ -39,79 +71,98 @@ void handleClient(int client_fd) {
     char id = buffer[0];
 
     {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        clients.push_back({client_fd, id});
+        lock_guard<mutex> lock(clientsMutex);
+        bool found = false;
+
+        for (auto& c : clients) {
+            if (c.id == id) {
+                close(c.socket);
+                c.socket = client_fd;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            clients.push_back({client_fd, id});
+        }
+
+        printf("Client %c %s\n", id, found ? "reconnected" : "connected");
     }
 
-    std::cout << "Wemos [" << id << "] connected ?\n";
-
     while (true) {
-        n = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-
+        n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
         if (n <= 0) {
-            std::cout << "Wemos [" << id << "] disconnected ?\n";
+            printf("Client %c disconnected\n", id);
             break;
         }
 
         buffer[n] = '\0';
-        std::string msg(buffer);
 
-        if (!msg.empty() && msg.back() == '\n') {
-            msg.pop_back();
+        bool onlyWhitespace = true;
+        for (int i = 0; i < n; ++i) {
+            if (!isspace((unsigned char)buffer[i])) {
+                onlyWhitespace = false;
+                break;
+            }
         }
 
-        size_t pos = msg.find(';');
-        if (pos == std::string::npos) continue;
-
-        std::string value = msg.substr(pos + 1);
-
-        size_t spacePos = value.find(' ');
-        if (spacePos == std::string::npos) continue;
-
-        std::string type  = value.substr(0, spacePos);
-        std::string state = value.substr(spacePos + 1);
-
-        std::cout << "Wemos [" << id << "] "
-                  << type << ": " << state << std::endl;
+        if (!onlyWhitespace) {
+            printf("Received from %c: %s\n", id, buffer);
+        }
     }
 
     close(client_fd);
 }
 
 /**
- * @brief 
- * 
+ * @brief Process console commands and send messages to the selected client.
+ *
+ * This loop reads a target ID and message from stdin and sends the message
+ * only to the client with that ID.
  */
 void commandLoop() {
     while (true) {
-        char target, cmd;
+        char target = 0;
+        usleep(100000);
+        printf("\nTarget (A/B/C): ");
+        scanf(" %c", &target);
 
-        std::cout << "\nTarget (A/B/C): ";
-        std::cin >> target;
+        printf("Type bericht (bijv: 1 of ALARM): ");
+        char msg_buf[BUFFER_SIZE];
+        if (!fgets(msg_buf, BUFFER_SIZE, stdin)) {
+            continue;
+        }
 
-        std::cout << "Command (1=blink, 2=off): ";
-        std::cin >> cmd;
+        int len = strlen(msg_buf);
+        if (len > 0 && msg_buf[len - 1] == '\n') {
+            msg_buf[--len] = '\0';
+        }
 
-        std::lock_guard<std::mutex> lock(clientsMutex);
+        if (len < BUFFER_SIZE - 1) {
+            msg_buf[len++] = '\n';
+            msg_buf[len] = '\0';
+        }
 
-        for (auto &c : clients) {
+        lock_guard<mutex> lock(clientsMutex);
+        for (auto& c : clients) {
             if (c.id == target) {
-                send(c.socket, &cmd, 1, 0);
-                std::cout << "? Sent to " << target << "\n";
+                send(c.socket, msg_buf, len, 0);
             }
         }
     }
 }
 
-
 /**
- * @brief 
- * 
+ * @brief Start the TCP server and accept incoming client connections.
+ *
+ * This function creates a listening socket, starts the console command loop
+ * in a separate thread, and then accepts new clients in an infinite loop.
  */
 void startServer() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    sockaddr_in address{};
+    sockaddr_in address = {};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
@@ -119,15 +170,10 @@ void startServer() {
     bind(server_fd, (struct sockaddr*)&address, sizeof(address));
     listen(server_fd, 5);
 
-    std::cout << "Server running on port " << PORT << "...\n";
-
-    std::thread cmdThread(commandLoop);
-    cmdThread.detach();
+    thread(commandLoop).detach();
 
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
-        std::thread(handleClient, client_fd).detach();
+        thread(handleClient, client_fd).detach();
     }
-
-    close(server_fd);
 }

@@ -4,6 +4,7 @@
 extern WiFiClient client;
 extern char DEVICE_ID;
 
+
 RFID::RFID() : nfc(-1, -1) {}
 
 void RFID::begin() {
@@ -55,10 +56,11 @@ void RFID::update() {
 
   uidStr.toUpperCase();
 
-  Serial.println("Kaart: " + uidStr);
+  // ✅ FIX: alleen nieuwe kaart printen
+  if (uidStr != lastUID) {
+    lastUID = uidStr;
 
-  // naar server sturen
-  if (client.connected()) {
+    Serial.println("Kaart: " + uidStr);
     client.println(uidStr);
   }
 }

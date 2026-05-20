@@ -60,8 +60,8 @@ all: main-build
 main-build: PCB_Encoder.elf secondary-outputs
 
 # Tool invocations
-PCB_Encoder.elf PCB_Encoder.map: $(OBJS) $(USER_OBJS) C:\Users\alebr\Documents\School\Jaar\ 2\Semester\ 4\PES\ project\STM32\ Encoder\ PCB\Daadwerkelijke\ code\PCB_Encoder\STM32L432KCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "PCB_Encoder.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\STM32 Encoder PCB\Daadwerkelijke code\PCB_Encoder\STM32L432KCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="PCB_Encoder.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+PCB_Encoder.elf PCB_Encoder.map: $(OBJS) $(USER_OBJS) C:\Users\shark\Documents\GitHub\PES-project\PCB_Encoder\STM32L432KCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "PCB_Encoder.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\shark\Documents\GitHub\PES-project\PCB_Encoder\STM32L432KCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="PCB_Encoder.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

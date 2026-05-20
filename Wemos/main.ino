@@ -2,85 +2,80 @@
 #include "BedSensor.h"
 #include "LedCheck.h"
 #include "DisplayMatrix.h"
+#include "RFID.h"
 
-/**
- * @brief Sets values for Wemos to connect to the network, server and its own ID.
- * 
- */
-const char* ssid = "NSELab";
-const char* password = "NSELabWiFi";
+const char* ssid = "happyvibeswifi";
+const char* password = "zoetoefeestschuur";
 
-const char* serverIP = "145.52.127.166";
+const char* serverIP = "192.168.0.217";
 const int serverPort = 5000;
 
-const char DEVICE_ID = 'A';
+char DEVICE_ID = 'A';
 
 WiFiClient client;
 BedSensor bed(A0);
 LedCheck led;
+RFID rfid;
 
-/**
- * @brief Connects to the network and informes the PI that an connection has been made
- * Starts the led and display function
- * 
- */
 void setup() {
+
+  Serial.begin(115200);
+  delay(500);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) delay(500);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
 
   client.connect(serverIP, serverPort);
+  client.setTimeout(10);
   client.println(DEVICE_ID);
-
+  client.print('\n');
   led.begin();
   displayInit();
+  rfid.begin();
+
 }
 
-/**
- * @brief Keeps a connection to the PI
- * 
- * 
- */
 void loop() {
 
+  
   if (!client.connected()) {
+    client.stop();
+
     client.connect(serverIP, serverPort);
     client.println(DEVICE_ID);
-    delay(2000);
-    return;
+    client.print('\n');
   }
 
-/**
- * @brief Wemos receives messages from the PI and turns them to cmd text that other functions trigger
- * 
- */
+
+  static String msg = "";
+
   while (client.available()) {
-    char cmd = client.read();
+    char c = client.read();
 
-    led.handleCommand(cmd);
-    displayHandleCommand(cmd);
-  }
+    if (c == '\n') {
+      msg.trim();
 
+      if (msg.length() > 0) {
+        if (msg == "1" || msg == "2") {
+          led.handleCommand(msg[0]);
+        } else {
+          displayShow(msg.c_str());
+        }
+      }
 
-  bool newValue = bed.read();
-  static bool lastValue = false;
-
-  if (newValue != lastValue) {
-    lastValue = newValue;
-
-    client.print("Wemos ");
-    client.print(DEVICE_ID);
-    client.println(" is verbonden.");
-    client.print(";");
-
-    if (newValue) {
-      client.println("BED ON");
+      msg = "";
     } else {
-      client.println("BED OFF");
+      msg += c;
     }
   }
 
 
   led.update();
-  displayUpdate(); 
-  delay(200);
+  displayUpdate();
+  bed.update();
+  rfid.update();
+
+  delay(50);
 }

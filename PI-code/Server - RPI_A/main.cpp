@@ -1,11 +1,13 @@
 #include "server.h"
+#include <thread>
 
-/**
- * @brief This starts the Server of the PI that enables the comminucation between the PI and mutiple Wemos
- * 
- * @return int 
- */
 int main() {
-    startServer();
+    startPi();
+
+    std::thread wemosThread(initWemos);
+    wemosThread.detach();
+
+    handleWemos();
+
     return 0;
 }

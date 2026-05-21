@@ -24,6 +24,8 @@
 /* USER CODE BEGIN PD */
 #define CAN_ID_DISTANCE_SENSOR   0x102
 #define CAN_ID_SENSOR_REQUEST    0x300
+
+#define CAN_ID_BRAND_ALARM        0x120
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,6 +50,8 @@ uint32_t            TxMailbox;
 volatile uint8_t last_source = 0;
 
 volatile uint8_t readDistance = 0;
+
+volatile uint8_t knopIngedrukt = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -57,7 +61,7 @@ static void MX_CAN1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-
+void sendBrandAlarm(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -201,16 +205,27 @@ while (1)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	// Local Troubleshooting code, print distance and timer value at serial
-//	  char msg[25];
-//	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
-//	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
-//
+	 // Local Troubleshooting code, print distance and timer value at serial
+	  char msg[25];
+	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
+	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
+
 //	  char ms[50];
 //	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
 //	  sprintf(ms, "CNT: %lu\r\n", cnt);
 //	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
 	  transmitDistance();
+
+	  if (knopIngedrukt)
+	  	{
+		  //sendBrandAlarm();
+		  char buffer[50];
+		  sprintf(buffer, "Knop ingedrukt, er is brand gemeld. \r\n");
+		  HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100);
+	  	  knopIngedrukt = 0;
+	  	}
+
+
 	  HAL_Delay(500);
   }
   /* USER CODE END 3 */
@@ -454,14 +469,22 @@ static void MX_GPIO_Init(void)
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* PA1 = TIM2_CH1 (Echo) */
-  GPIO_InitStruct.Pin = GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//  GPIO_InitStruct.Pin = GPIO_PIN_1;
+//  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+//  GPIO_InitStruct.Pull = GPIO_NOPULL;
+//  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+//  GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
+//  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PB1 */
+    GPIO_InitStruct.Pin = GPIO_PIN_1;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+    HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
@@ -498,6 +521,24 @@ void transmitDistance(){
 
 	    lastDistance = newDistance;
 	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_PIN_1)
+    	knopIngedrukt = 1;
+}
+
+void sendBrandAlarm(void)
+{
+	TxHeader.StdId = CAN_ID_BRAND_ALARM; //Het ID van de sensor dat verantwoordelijk wordt voor registeren van brand.
+	TxHeader.IDE = CAN_ID_STD; //Constante.
+	TxHeader.RTR = CAN_RTR_DATA; //Constante
+	TxHeader.DLC = 1; //Het aantal databits dat verzonden wordt.
+
+	TxData[0] = 0x01;  //Data met waarde voor registratie van brand.
+
+	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData,  &TxMailbox); // Versturen van dat er brand geregistreerd is.
 }
 /* USER CODE END 4 */
 

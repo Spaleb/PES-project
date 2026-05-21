@@ -31,7 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define CAN_ID_BRAND_ALARM 0x120
+#define CAN_ID_SERVO_ONDER 0x230
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -40,12 +41,21 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CAN_HandleTypeDef hcan1;
+
 TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+CAN_TxHeaderTypeDef TxHeader;
+CAN_RxHeaderTypeDef RxHeader;
+uint8_t             TxData[8];
+uint8_t             RxData[8];
+uint32_t            TxMailbox;
 
+volatile uint8_t brandActief = 0;
+volatile uint8_t doorOpen = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -53,6 +63,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_CAN1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -70,6 +81,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
 
   /* USER CODE END 1 */
 
@@ -93,8 +105,26 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM16_Init();
   MX_USART2_UART_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
+  CAN_FilterTypeDef  sFilterConfig;
+  HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1); //De PWM voor de deur.
 
+  // Configure Filter: Accept ALL messages (Mask 0)
+  sFilterConfig.FilterBank = 0;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.SlaveStartFilterBank = 14;
+
+  HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
+  HAL_CAN_Start(&hcan1); //Het starten van de CAN.
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); //Aanzetten van de interrupt.
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -104,6 +134,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if (doorOpen == 1){
+	  		char boot_msg[] = "Trigger\r\n";
+	  		HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
+	  		HAL_Delay(3000);
+	  		__HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 1500);
+	  }
+
   }
   /* USER CODE END 3 */
 }
@@ -166,6 +203,45 @@ void SystemClock_Config(void)
   /** Enable MSI Auto calibration
   */
   HAL_RCCEx_EnableMSIPLLMode();
+}
+
+/**
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN1_Init(void)
+{
+
+  /* USER CODE BEGIN CAN1_Init 0 */
+
+  /* USER CODE END CAN1_Init 0 */
+
+  /* USER CODE BEGIN CAN1_Init 1 */
+
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 10;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
+//  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
+//  HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
+
+  /* USER CODE END CAN1_Init 2 */
+
 }
 
 /**
@@ -308,6 +384,37 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void openDoor(){
+		 __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 2000); // Bij brand opent de deur voor 180 graden.
+		 doorOpen = 1;
+}
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+    {
+    	switch (RxHeader.StdId){
+    		case CAN_ID_BRAND_ALARM:
+    			if (RxData[0] == 0x01){
+    				brandActief = 1;
+    				openDoor();
+
+    			}else if (RxData[0] == 0x00){
+    				brandActief = 0;
+
+    			}
+
+    			break; // Er hoeft niet verder gecheckt te worden bij brand
+
+    		case CAN_ID_SERVO_ONDER:
+    			openDoor(RxData[0]);
+    			break;
+
+    		default:
+    			break;
+    	}
+    }
+}
 
 /* USER CODE END 4 */
 

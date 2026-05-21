@@ -49,6 +49,8 @@
 
 #define MATRIX_LED_ON	0x50
 #define MATRIX_LED_OFF	0x51
+
+#define CAN_ID_BRAND_ALARM 0x120
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,6 +61,10 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
 
+TIM_HandleTypeDef htim1;
+
+UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader;
 CAN_RxHeaderTypeDef RxHeader;
@@ -67,6 +73,7 @@ uint8_t             RxData[8];
 uint32_t            TxMailbox;
 
 volatile uint8_t last_source = 0;
+volatile uint8_t brandActief = 0;
 
 
 //Keypad global variables
@@ -84,6 +91,8 @@ uint8_t keypadIndex = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 void matrixLedOn(void);
 void matrixLedOff(void);
@@ -101,8 +110,6 @@ void TestLedActions(void);
   * @brief  The application entry point.
   * @retval int
   */
-
-
 int main(void)
 {
 
@@ -129,8 +136,14 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN1_Init();
+  MX_USART2_UART_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   CAN_FilterTypeDef  sFilterConfig;
+
+
+  //HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  //HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2); //Voor het starten van de PWM, wat niet meer standaard is.
 
     // Configure Filter: Accept ALL messages (Mask 0)
     sFilterConfig.FilterBank = 0;
@@ -165,72 +178,24 @@ int main(void)
     TxHeader.RTR = CAN_RTR_DATA;
     TxHeader.DLC = 8;
     TxHeader.TransmitGlobalTime = DISABLE;
+
+    char buffer[50];
+    sprintf(buffer, "Hoera het runt! \r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-{
-    char key = ReadKeypad();
+  {
+    /* USER CODE END WHILE */
 
-    // GIT TEST COMMIT
-    if (key != 0)
-    {
-        keypadBuffer[keypadIndex++] = key;
-
-        if (keypadIndex >= 2)
-        {
-            keypadBuffer[2] = '\0';
-
-            // Check combinaties
-            if (strcmp(keypadBuffer, "1A") == 0)
-            {
-                LedAan1 = 1;
-
-                TxHeader.DLC = 8;
-                TxData[0] = NODE_PI;
-                TxData[1] = MY_NODE_ID;
-                TxData[2] = READ_ACCESS;
-                TxData[3] = 0x00;
-                TxData[4] = 0x01;
-                TxData[5] = 0x00;
-                TxData[6] = 0x00;
-                TxData[7] = 0x00;
-
-                HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-
-            }
-            else if (strcmp(keypadBuffer, "2A") == 0)
-            {
-                LedAan2 = 1;
-
-                TxHeader.DLC = 8;
-                TxData[0] = NODE_PI;
-                TxData[1] = MY_NODE_ID;
-                TxData[2] = READ_ACCESS;
-                TxData[3] = 0x00;
-                TxData[4] = 0x02;
-                TxData[5] = 0x00;
-                TxData[6] = 0x00;
-                TxData[7] = 0x00;
-
-                HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-            }
-
-            // Reset buffer
-            keypadIndex = 0;
-            keypadBuffer[0] = 0;
-            keypadBuffer[1] = 0;
-        }
-
-        // Wacht tot loslaten
-        if (ReadKeypad() != 0) {
-        	HAL_Delay(50);
-        }
-
-    }
-//    TestLedActions();
-}
+    /* USER CODE BEGIN 3 */
+	if (brandActief)
+		HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2); //Zet dan de buzzer aan.
+	else
+		HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_2); //Als er geen brand actief is, staat de buzzer uit.
+  }
   /* USER CODE END 3 */
 }
 
@@ -238,89 +203,6 @@ int main(void)
   * @brief System Clock Configuration
   * @retval None
   */
-char ReadKeypad(void)
-{
-    const char keymap[4][4] = {
-        {'1','2','3','A'},
-        {'4','5','6','B'},
-        {'7','8','9','C'},
-        {'*','0','#','D'}
-    };
-
-    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
-
-    if (!HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)) { HAL_Delay(20); return '1'; }
-    if (!HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)) { HAL_Delay(20); return '2'; }
-    if (!HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)) { HAL_Delay(20); return '3'; }
-    if (!HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)) { HAL_Delay(20); return 'A'; }
-
-    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
-
-    if (!HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)) { HAL_Delay(20); return '4'; }
-    if (!HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)) { HAL_Delay(20); return '5'; }
-    if (!HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)) { HAL_Delay(20); return '6'; }
-    if (!HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)) { HAL_Delay(20); return 'B'; }
-
-    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
-
-    if (!HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)) { HAL_Delay(20); return '7'; }
-    if (!HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)) { HAL_Delay(20); return '8'; }
-    if (!HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)) { HAL_Delay(20); return '9'; }
-    if (!HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)) { HAL_Delay(20); return 'C'; }
-
-    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_RESET);
-
-    if (!HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)) { HAL_Delay(20); return '*'; }
-    if (!HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)) { HAL_Delay(20); return '0'; }
-    if (!HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)) { HAL_Delay(20); return '#'; }
-    if (!HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)) { HAL_Delay(20); return 'D'; }
-
-    return 0;  // Geen toets ingedrukt
-}
-
-//void TestLedActions(void)
-//{
-//    const uint16_t LED_PIN = GPIO_PIN_8;
-//    GPIO_TypeDef* LED_PORT = GPIOA;
-//
-//    // LedAan1 → LED 1x aan (1 seconde)
-//    if (LedAan1 == 1)
-//    {
-//        HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
-//        HAL_Delay(1000);
-//        HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_RESET);
-//
-//        LedAan1 = 0;
-//    }
-//
-//    // LedAan2 → LED 2x aan (2 seconden totaal)
-//    if (LedAan2 == 1)
-//    {
-//        for (int i = 0; i < 2; i++)
-//        {
-//            HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
-//            HAL_Delay(1000);
-//            HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_RESET);
-//            HAL_Delay(1000);
-//        }
-//
-//        LedAan2 = 0;
-//    }
-//}
-
-
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -415,6 +297,111 @@ static void MX_CAN1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 80-1; //Systeemklok / Prescaler = 1MHz.
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 500-1; //1MHZ / 500 = 2Khz, resulteert in een goed hoorbaar geluid.
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 250; //= 50% Duty cycle. Er is een wisselend signaal nodig voor de buzzer om geluid te maken.
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
+  sBreakDeadTimeConfig.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
+  sBreakDeadTimeConfig.Break2Filter = 0;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -432,42 +419,23 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, R3_Pin|R4_Pin|R2_Pin|R1_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : C4_Pin C3_Pin C2_Pin C1_Pin */
-  GPIO_InitStruct.Pin = C4_Pin|C3_Pin|C2_Pin|C1_Pin;
+  /*Configure GPIO pin : PB1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : R3_Pin R4_Pin LED0_Pin R2_Pin
-                           R1_Pin */
-  GPIO_InitStruct.Pin = R3_Pin|R4_Pin|LED0_Pin|R2_Pin
-                          |R1_Pin;
+  /*Configure GPIO pin : PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LED0Button_Pin */
-  GPIO_InitStruct.Pin = LED0Button_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(LED0Button_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : VCP_RX_Pin */
-  GPIO_InitStruct.Pin = VCP_RX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF3_USART2;
-  HAL_GPIO_Init(VCP_RX_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LD3_Pin */
   GPIO_InitStruct.Pin = LD3_Pin;
@@ -483,7 +451,19 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
+	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+	{
+		//Brand dient als eerste gecheckt te worden als prioriteitbericht boven alles.
+		// Als het bericht overeenkomt met het brandalarm ID & het 1 byte bevat (0 of 1).
+		if (RxHeader.StdId == CAN_ID_BRAND_ALARM && RxHeader.DLC == 1)
+		{
+			if (RxData[0] == 0x01)
+				brandActief = 1; //Brand wordt als actief gezet als dit doorgegeven is in het bericht.
+			else if (RxData[0] == 0x00)
+				brandActief = 0; //Brand wordt weer uitgezet als dit doorgegeven is in het bericht.
+
+			return; //Er hoeft niet meer verder gegaan in de functie als dit het bericht was.
+		}
 
 		char uart_buf[100];
 		int len;
@@ -529,7 +509,6 @@ void matrixLedOn(){
 void matrixLedOff(){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, 0);
 }
-
 /* USER CODE END 4 */
 
 /**

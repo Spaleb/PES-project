@@ -70,10 +70,10 @@ void RFID::update() {
 
   uidStr.toUpperCase();
 
-  if (uidStr != lastUID) {
-    lastUID = uidStr;
+  // if (uidStr != lastUID) {
+  //   lastUID = uidStr;
 
     Serial.println("Kaart: " + uidStr);
-    client.println(uidStr);
-  }
+    client.println("ID:" + uidStr);
+  // }
 }

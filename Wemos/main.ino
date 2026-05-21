@@ -3,25 +3,30 @@
 #include "LedCheck.h"
 #include "DisplayMatrix.h"
 #include "RFID.h"
+#include "LedStrip.h"
 
-const char* ssid = "happyvibeswifi";
-const char* password = "zoetoefeestschuur";
 
-const char* serverIP = "192.168.0.217";
+const char* ssid = "NSELab";
+const char* password = "NSELabWiFi";
+
+const char* serverIP = "145.52.127.166";
 const int serverPort = 5000;
 
 char DEVICE_ID = 'A';
 
 WiFiClient client;
 BedSensor bed(A0);
-LedCheck led;
+LedCheck ledCheck;
 RFID rfid;
+LedStrip ledstrip;
 
 void setup() {
 
   Serial.begin(115200);
   delay(500);
   WiFi.begin(ssid, password);
+  Serial.println("Start OK");
+
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -31,9 +36,16 @@ void setup() {
   client.setTimeout(10);
   client.println(DEVICE_ID);
   client.print('\n');
-  led.begin();
+
+  ledCheck.begin();
   displayInit();
   rfid.begin();
+  ledstrip.begin();
+
+
+
+  Serial.println("Start OK2");
+
 
 }
 
@@ -59,8 +71,11 @@ void loop() {
 
       if (msg.length() > 0) {
         if (msg == "1" || msg == "2") {
-          led.handleCommand(msg[0]);
-        } else {
+          ledCheck.handleCommand(msg[0]);
+        } 
+        else if (msg == "on" || msg == "off" || msg == "red" || msg == "green" || msg == "blue") {
+          ledstrip.handleCommand(msg, client);
+        }  else {
           displayShow(msg.c_str());
         }
       }
@@ -72,7 +87,7 @@ void loop() {
   }
 
 
-  led.update();
+  ledCheck.update();
   displayUpdate();
   bed.update();
   rfid.update();

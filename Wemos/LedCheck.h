@@ -8,9 +8,9 @@
  */
 class LedCheck {
   private:
-    bool blink;              ///< Enables blinking mode
-    bool ledState;           ///< Current LED state (HIGH/LOW)
-    unsigned long lastToggle;///< Last toggle timestamp
+    bool blink;
+    bool ledState;
+    unsigned long lastToggle;
 
   public:
     /**

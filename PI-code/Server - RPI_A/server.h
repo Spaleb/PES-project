@@ -1,10 +1,14 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-/**
- * @brief Function declaration to start the server
- * 
- */
-void startServer();
+#include <string>
+
+void initWemos();
+void startPi();
+void handleWemos();
+
+void sendToPi(const std::string& msg);
+
+extern int sock;
 
 #endif

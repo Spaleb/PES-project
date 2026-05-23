@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 #include <cstring>
 #include <mutex>
@@ -30,37 +31,28 @@ mutex clientsMutex;
 int sock = 0;
 sockaddr_in serv_addr = {};
 
-void sendToPi(const std::string& msg) {
-    if (sock <= 0) {
-        std::cerr << "Pi socket not connected\n";
-        return;
-    }
-
-    std::string fullMsg = msg;
-
-    if (fullMsg.back() != '\n') {
-        fullMsg += "\n";
-    }
-
-    send(sock, fullMsg.c_str(), fullMsg.size(), 0);
-}
+void processMessage(const std::string& msg);
+void sendToPi(const std::string& msg);
 
 void receivedWemos(int client_fd) {
     char buffer[BUFFER_SIZE];
 
     int n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+
     if (n <= 0) {
         close(client_fd);
         return;
     }
 
     buffer[n] = '\0';
+
     char id = buffer[0];
 
     {
         lock_guard<mutex> lock(clientsMutex);
 
         bool found = false;
+
         for (auto& c : clients) {
             if (c.id == id) {
                 close(c.socket);
@@ -79,6 +71,7 @@ void receivedWemos(int client_fd) {
 
     while (true) {
         n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+
         if (n <= 0) {
             printf("Client %c disconnected\n", id);
             break;
@@ -87,7 +80,8 @@ void receivedWemos(int client_fd) {
         buffer[n] = '\0';
 
         bool onlyWhitespace = true;
-        for (int i = 0; i < n; ++i) {
+
+        for (int i = 0; i < n; i++) {
             if (!isspace((unsigned char)buffer[i])) {
                 onlyWhitespace = false;
                 break;
@@ -96,39 +90,118 @@ void receivedWemos(int client_fd) {
 
         if (!onlyWhitespace) {
             printf("Received from %c: %s\n", id, buffer);
-        
-            std::string msg = std::string(buffer);   
+
+            std::string msg(buffer);
             sendToPi(msg);
         }
     }
 
     close(client_fd);
+
+    {
+        lock_guard<mutex> lock(clientsMutex);
+
+        for (auto it = clients.begin(); it != clients.end(); ++it) {
+            if (it->id == id) {
+                clients.erase(it);
+                break;
+            }
+        }
+    }
+}
+
+void processMessage(const std::string& msg) {
+    if (msg.empty()) {
+        return;
+    }
+
+    char target = msg[0];
+
+    size_t payloadStart = 1;
+
+    if (msg.size() > 1 && (msg[1] == ' ' || msg[1] == ':')) {
+        payloadStart = 2;
+    }
+
+    std::string bericht = msg.substr(payloadStart);
+
+    if (bericht.empty()) {
+        return;
+    }
+
+    if (bericht.back() != '\n') {
+        bericht += '\n';
+    }
+
+    lock_guard<mutex> lock(clientsMutex);
+
+    for (auto& c : clients) {
+        if (c.id == target) {
+            send(c.socket, bericht.c_str(), bericht.size(), 0);
+            return;
+        }
+    }
+
+    printf("Wemos target %c not found\n", target);
+}
+
+void receiveFromPi() {
+    char buffer[BUFFER_SIZE];
+
+    while (true) {
+        memset(buffer, 0, BUFFER_SIZE);
+
+        int valread = recv(sock, buffer, BUFFER_SIZE - 1, 0);
+
+        if (valread > 0) {
+            buffer[valread] = '\0';
+
+            std::cout << "From Pi: " << buffer << std::endl;
+
+            processMessage(buffer);
+        }
+        else if (valread == 0) {
+            std::cout << "Pi disconnected\n";
+            break;
+        }
+        else {
+            std::cerr << "Recv error from Pi\n";
+            break;
+        }
+    }
 }
 
 void handleWemos() {
     while (true) {
         char target = 0;
+
         printf("\nTarget (A/B/C): ");
         scanf(" %c", &target);
 
-        printf("Type bericht (bijv: 1 of ALARM): ");
+        getchar();
+
+        printf("Type bericht: ");
+
         char msg_buf[BUFFER_SIZE];
+
         if (!fgets(msg_buf, BUFFER_SIZE, stdin)) {
             continue;
         }
+
         int len = strlen(msg_buf);
-        if (len > 0 && msg_buf[len - 1] == '\n') msg_buf[--len] = '\0';
+
+        if (len > 0 && msg_buf[len - 1] == '\n') {
+            msg_buf[len - 1] = '\0';
+        }
 
         std::string out = std::string(msg_buf) + "\n";
 
-        {
-            lock_guard<mutex> lock(clientsMutex);
+        lock_guard<mutex> lock(clientsMutex);
 
-            for (auto& c : clients) {
-                if (c.id == target) {
-                    send(c.socket, out.c_str(), out.size(), 0);
-                    break;
-                }
+        for (auto& c : clients) {
+            if (c.id == target) {
+                send(c.socket, out.c_str(), out.size(), 0);
+                break;
             }
         }
     }
@@ -136,6 +209,7 @@ void handleWemos() {
 
 void startPi() {
     sock = socket(AF_INET, SOCK_STREAM, 0);
+
     if (sock < 0) {
         std::cerr << "Socket error\n";
         return;
@@ -153,130 +227,68 @@ void startPi() {
         std::cerr << "Pi connection failed\n";
         return;
     }
+
     std::cout << "Connected to Pi!\n";
+
+    thread(receiveFromPi).detach();
 }
 
 void initWemos() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
+    if (server_fd < 0) {
+        std::cerr << "Server socket failed\n";
+        return;
+    }
+
+    int opt = 1;
+
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
     sockaddr_in address = {};
+
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(WEMOS_PORT);
 
-    bind(server_fd, (struct sockaddr*)&address, sizeof(address));
-    listen(server_fd, 5);
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        std::cerr << "Bind failed\n";
+        return;
+    }
+
+    if (listen(server_fd, 5) < 0) {
+        std::cerr << "Listen failed\n";
+        return;
+    }
+
+    std::cout << "Wemos server started\n";
 
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
-        thread(receivedWemos, client_fd).detach();
-    }
-}    char id = buffer[0];
 
-    {
-        lock_guard<mutex> lock(clientsMutex);
-        bool found = false;
-
-        for (auto& c : clients) {
-            if (c.id == id) {
-                close(c.socket);
-                c.socket = client_fd;
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            clients.push_back({client_fd, id});
-        }
-
-        printf("Client %c %s\n", id, found ? "reconnected" : "connected");
-    }
-
-    while (true) {
-        n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
-        if (n <= 0) {
-            printf("Client %c disconnected\n", id);
-            break;
-        }
-
-        buffer[n] = '\0';
-
-        bool onlyWhitespace = true;
-        for (int i = 0; i < n; ++i) {
-            if (!isspace((unsigned char)buffer[i])) {
-                onlyWhitespace = false;
-                break;
-            }
-        }
-
-        if (!onlyWhitespace) {
-            printf("Received from %c: %s\n", id, buffer);
-        }
-    }
-
-    close(client_fd);
-}
-
-/**
- * @brief Process console commands and send messages to the selected client.
- *
- * This loop reads a target ID and message from stdin and sends the message
- * only to the client with that ID.
- */
-void commandLoop() {
-    while (true) {
-        char target = 0;
-        usleep(100000);
-        printf("\nTarget (A/B/C): ");
-        scanf(" %c", &target);
-
-        printf("Type bericht (bijv: 1 of ALARM): ");
-        char msg_buf[BUFFER_SIZE];
-        if (!fgets(msg_buf, BUFFER_SIZE, stdin)) {
+        if (client_fd < 0) {
             continue;
         }
 
-        int len = strlen(msg_buf);
-        if (len > 0 && msg_buf[len - 1] == '\n') {
-            msg_buf[--len] = '\0';
-        }
-
-        if (len < BUFFER_SIZE - 1) {
-            msg_buf[len++] = '\n';
-            msg_buf[len] = '\0';
-        }
-
-        lock_guard<mutex> lock(clientsMutex);
-        for (auto& c : clients) {
-            if (c.id == target) {
-                send(c.socket, msg_buf, len, 0);
-            }
-        }
+        thread(receivedWemos, client_fd).detach();
     }
 }
 
-/**
- * @brief Start the TCP server and accept incoming client connections.
- *
- * This function creates a listening socket, starts the console command loop
- * in a separate thread, and then accepts new clients in an infinite loop.
- */
-void startServer() {
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-    sockaddr_in address = {};
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-
-    bind(server_fd, (struct sockaddr*)&address, sizeof(address));
-    listen(server_fd, 5);
-
-    thread(commandLoop).detach();
-
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        thread(handleClient, client_fd).detach();
+void sendToPi(const std::string& msg) {
+    if (sock <= 0) {
+        std::cerr << "Pi socket not connected\n";
+        return;
     }
+
+    if (msg.empty()) {
+        return;
+    }
+
+    std::string fullMsg = msg;
+
+    if (!fullMsg.empty() && fullMsg.back() != '\n') {
+        fullMsg += '\n';
+    }
+
+    send(sock, fullMsg.c_str(), fullMsg.size(), 0);
 }

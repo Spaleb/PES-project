@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define ACC_ADR (0x68 << 1)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,12 +50,12 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint8_t ledsA = 0x00;   // GPIOA (LED 0 t/m 7)
 uint8_t ledsB = 0x00;   // GPIOB (LED 8 en 9)
+int16_t Accel_X_RAW;
+int16_t Accel_Y_RAW;
+int16_t Accel_Z_RAW;
 
-CAN_TxHeaderTypeDef TxHeader;
-CAN_RxHeaderTypeDef RxHeader;
-uint8_t             TxData[8];
-uint8_t             RxData[8];
-uint32_t            TxMailbox;
+float Ax, Ay, Az, Atot;
+
 /**brief Verhoogt de ventilatiestand*/
 /** Huidige ventilatiestand (0 = uit, 1 = laag, 2 = middel, 3 = hoog) */
 uint8_t ventilatieStand = 0;
@@ -213,12 +213,6 @@ int main(void)
     TxHeader.DLC = 4;                       // Sending 4 bytes
     TxHeader.TransmitGlobalTime = DISABLE;
 
-    // Print a startup message to the PC so we know it booted safely
-    char boot_msg[] = "\r\n\r\n--- STM32 CAN NODE ALIVE & RUNNING ---\r\n";
-    HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
-
-
-
   // IODIRA (0x00) → alle A‑pins output
   HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x00, 1, &setA, 1, 100);
 
@@ -238,6 +232,10 @@ int main(void)
   setLedBar(9,1);
   setLedBar(7,1);
 
+  uint8_t awake_cmd = 0x00;
+  HAL_I2C_Mem_Write(&hi2c1, ACC_ADR, 0x6B, 1, &awake_cmd, 1, 100);
+  HAL_Delay(100); // Geef de sensor even de tijd om stabiel te worden
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -252,6 +250,8 @@ int main(void)
  */
 	  uint8_t value = 0;
 	  HAL_I2C_Mem_Read(&hi2c1, 0x21 << 1, 0x13, 1, &value, 1, 100);
+
+	  HAL_Delay(5);
 
 
       /**
@@ -275,7 +275,7 @@ int main(void)
 	  if (!(value & (1 << 2))) {
 	      volgendeVentilatieStand();
 	      updateVentilatieLeds();
-	      printStatus();
+	      //printStatus();
 	      HAL_Delay(250);
 	  }
 
@@ -291,7 +291,7 @@ int main(void)
 	  if (!(value & (1 << 4))) {
 	      toggleVerwarming();
 	      updateVerwarmingLeds();
-	      printStatus();
+	      //printStatus();
 	      HAL_Delay(250);
 	  }
 
@@ -306,7 +306,7 @@ int main(void)
 	  if (!(value & (1 << 6))) {
 	      verhoogTemperatuur();
 	      updateVerwarmingLeds();
-	      printStatus();
+	      //printStatus();
 	      HAL_Delay(250);
 	  }
 
@@ -325,28 +325,22 @@ int main(void)
 	      HAL_Delay(250);
 	  }
 
+	  HAL_Delay(50);
 
+
+	  Ax = X_RAW / 16384.0;
+	  Ay = Y_RAW / 16384.0;
+	  Az = Z_RAW / 16384.0;
+	  Atot = sqrtf((Ax * Ax) + (Ay * Ay) + (Az * Az));
+
+	  if (Atot < 0.35f){
+	  	char test[50] = "Gevallen!!!!";
+	  	HAL_UART_Transmit(&huart2, (uint8_t*)test, strlen(test), 1000);
+	  }
 
 	  HAL_Delay(50);
 
-//    Load the Heartbeat Data
-// 	  TxData[0] = 0x42;
-//	  TxData[1] = 0x52;
-//	  TxData[2] = 0x62;
-//    TxData[3] = 0x72;
-//
-//	    	  // Try to send the message to the Raspberry Pi
-//	    	  if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK) {
-//	    		  // Print to PC to confirm it pushed to the CAN bus
-//	    		  char tx_msg[] = "-> Sent Heartbeat to Pi (ID 0x777)\r\n";
-//	    		  HAL_UART_Transmit(&huart2, (uint8_t*)tx_msg, strlen(tx_msg), 100);
-//	    	  } else {
-//	    		  // Print to PC if it failed (e.g. Pi is disconnected)
-//	    		  char err_msg[] = "X Failed to send Heartbeat (No ACK from Pi)\r\n";
-//	    		  HAL_UART_Transmit(&huart2, (uint8_t*)err_msg, strlen(err_msg), 100);
-//	    	  }
 
-//	    	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -597,6 +591,15 @@ void setLedBar(uint8_t index, uint8_t on){
 		HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x13, 1, &ledsB, 1, 100);
 	}
 
+}
+
+void readAccelerometer(){
+	uint8_t acc_data[6];
+	HAL_I2C_Mem_Read(&hi2c1, ACC_ADR, 0x3B, 1, Rec_Data, 6, 100);
+
+	X_RAW = (int16_t)(acc_data[0] << 8 | acc_data[1]);
+	Y_RAW = (int16_t)(acc_data[2] << 8 | acc_data[3]);
+	Z_RAW = (int16_t)(acc_data[4] << 8 | acc_data[5]);
 }
 
 

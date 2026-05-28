@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,6 +34,13 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define ACC_ADR (0x68 << 1)
+#define CAN_ID_FALL_DETECTED 0x20
+
+CAN_TxHeaderTypeDef TxHeader;
+CAN_RxHeaderTypeDef RxHeader;
+uint8_t             TxData[8];
+uint8_t             RxData[8];
+uint32_t            TxMailbox;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,22 +58,11 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint8_t ledsA = 0x00;   // GPIOA (LED 0 t/m 7)
 uint8_t ledsB = 0x00;   // GPIOB (LED 8 en 9)
-int16_t Accel_X_RAW;
-int16_t Accel_Y_RAW;
-int16_t Accel_Z_RAW;
+int16_t X_RAW;
+int16_t Y_RAW;
+int16_t Z_RAW;
 
 float Ax, Ay, Az, Atot;
-
-/**brief Verhoogt de ventilatiestand*/
-/** Huidige ventilatiestand (0 = uit, 1 = laag, 2 = middel, 3 = hoog) */
-uint8_t ventilatieStand = 0;
-
-/** Status van de verwarming (0 = uit, 1 = aan) */
-uint8_t verwarmingAan = 0;
-
-/** Gewenste temperatuur in graden Celsius */
-int gewensteTemperatuur = 20;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,60 +76,9 @@ void setLedBar(uint8_t index, uint8_t on);
 void setLed0(uint8_t on);
 void setLed1(uint8_t on);
 
-/**
- * @brief Verhoogt de ventilatiestand.
- *
- * De ventilatie schakelt cyclisch:
- * 0 -> 1 -> 2 -> 3 -> 0
- */
-void volgendeVentilatieStand(void);
-
-/**
- * @brief Zet de verwarming aan of uit.
- *
- * Wanneer de functie wordt aangeroepen,
- * wisselt de status tussen actief en inactief.
- */
-void toggleVerwarming(void);
-
-/**
- * @brief Verhoogt de gewenste temperatuur.
- *
- * De temperatuur kan maximaal 30 graden worden.
- */
-void verhoogTemperatuur(void);
-
-/**
- * @brief Verlaagt de gewenste temperatuur.
- *
- * De temperatuur kan minimaal 10 graden worden.
- */
-void verlaagTemperatuur(void);
-
-/**
- * @brief Update de ventilatie LED-indicatie.
- *
- * LED 0 t/m 2 tonen de huidige ventilatiestand.
- */
-void updateVentilatieLeds(void);
-
-/**
- * @brief Update de verwarmings LED-indicatie.
- *
- * LED 5 toont of de verwarming actief is.
- * LED 7 t/m 9 tonen het ingestelde temperatuurniveau.
- */
-void updateVerwarmingLeds(void);
-
-/**
- * @brief Stuurt de huidige systeemstatus naar TeraTerm.
- *
- * De functie toont:
- * - ventilatiestand
- * - status van de verwarming
- * - gewenste temperatuur
- */
-void printStatus(void);
+void readAccelerometer(void);
+void detectFall(void);
+void sendFallDetected(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -183,10 +129,10 @@ int main(void)
     sFilterConfig.FilterBank = 0;
     sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
     sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-    sFilterConfig.FilterIdHigh = 0x0000;
-    sFilterConfig.FilterIdLow = 0x0000;
-    sFilterConfig.FilterMaskIdHigh = 0x0000;
-    sFilterConfig.FilterMaskIdLow = 0x0000;
+    sFilterConfig.FilterIdHigh = 0xFFFF;
+    sFilterConfig.FilterIdLow = 0xFFFF;
+    sFilterConfig.FilterMaskIdHigh = 0xFFFF;
+    sFilterConfig.FilterMaskIdLow = 0xFFFF;
     sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
     sFilterConfig.FilterActivation = ENABLE;
     sFilterConfig.SlaveStartFilterBank = 14;
@@ -204,14 +150,6 @@ int main(void)
     if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
   	  Error_Handler();
     }
-
-    // Prepare the Transmit Header (The Envelope)
-    TxHeader.StdId = 0x777;                 // Give this STM32 a recognizable ID
-    TxHeader.ExtId = 0x00;
-    TxHeader.IDE = CAN_ID_STD;
-    TxHeader.RTR = CAN_RTR_DATA;
-    TxHeader.DLC = 4;                       // Sending 4 bytes
-    TxHeader.TransmitGlobalTime = DISABLE;
 
   // IODIRA (0x00) → alle A‑pins output
   HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x00, 1, &setA, 1, 100);
@@ -232,9 +170,17 @@ int main(void)
   setLedBar(9,1);
   setLedBar(7,1);
 
+  // Waking up the ACC sensor
   uint8_t awake_cmd = 0x00;
   HAL_I2C_Mem_Write(&hi2c1, ACC_ADR, 0x6B, 1, &awake_cmd, 1, 100);
-  HAL_Delay(100); // Geef de sensor even de tijd om stabiel te worden
+
+  HAL_Delay(5);
+
+  // Setting the ledbar to 0
+//  uint8_t value = 0;
+//  HAL_I2C_Mem_Read(&hi2c1, 0x21 << 1, 0x13, 1, &value, 1, 100);
+
+  HAL_Delay(100);
 
   /* USER CODE END 2 */
 
@@ -242,105 +188,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      /**
- * @brief Leest de status van de MCP23017 GPIO-poort uit.
- *
- * De variabele 'value' bevat de actuele status van
- * de knoppen die via de I2C GPIO-expander zijn aangesloten.
- */
-	  uint8_t value = 0;
-	  HAL_I2C_Mem_Read(&hi2c1, 0x21 << 1, 0x13, 1, &value, 1, 100);
+	  readAccelerometer();
+	  detectFall();
 
-	  HAL_Delay(5);
-
-
-      /**
- * @brief Leest de status van de fysieke knoppen uit.
- *
- * Variabele 'a' leest Button 0 op PB1.
- * Variabele 'b' leest Button 1 op PA9.
- */
-	  uint8_t a = HAL_GPIO_ReadPin(GPIOB, LED_Button_0_Pin);
-	  uint8_t b = HAL_GPIO_ReadPin(GPIOA, LED_Button_1_Pin);
-
-
-      /**
- * @brief Verwerkt de ventilatieknop.
- *
- * Wanneer knop GPB2 wordt ingedrukt,
- * schakelt de ventilatie naar de volgende stand.
- * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
- */
-
-	  if (!(value & (1 << 2))) {
-	      volgendeVentilatieStand();
-	      updateVentilatieLeds();
-	      //printStatus();
-	      HAL_Delay(250);
-	  }
-
-
-      /**
- * @brief Verwerkt de verwarmingsknop.
- *
- * Wanneer knop GPB4 wordt ingedrukt,
- * wordt de verwarming aan of uit gezet.
- * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
- */
-	  
-	  if (!(value & (1 << 4))) {
-	      toggleVerwarming();
-	      updateVerwarmingLeds();
-	      //printStatus();
-	      HAL_Delay(250);
-	  }
-
-      /**
- * @brief Verhoogt de gewenste temperatuur.
- *
- * Wanneer knop GPB6 wordt ingedrukt,
- * stijgt de gewenste temperatuur met 1 graad Celsius.
- * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
- */
-	 
-	  if (!(value & (1 << 6))) {
-	      verhoogTemperatuur();
-	      updateVerwarmingLeds();
-	      //printStatus();
-	      HAL_Delay(250);
-	  }
-
-      /**
- * @brief Verlaagt de gewenste temperatuur.
- *
- * Wanneer knop PB1 wordt ingedrukt,
- * daalt de gewenste temperatuur met 1 graad Celsius.
- * Daarna worden de LED-indicatie en systeemstatus bijgewerkt.
- */
-
-	  if (!a) {
-	      verlaagTemperatuur();
-	      updateVerwarmingLeds();
-	      printStatus();
-	      HAL_Delay(250);
-	  }
-
-	  HAL_Delay(50);
-
-
-	  Ax = X_RAW / 16384.0;
-	  Ay = Y_RAW / 16384.0;
-	  Az = Z_RAW / 16384.0;
-	  Atot = sqrtf((Ax * Ax) + (Ay * Ay) + (Az * Az));
-
-	  if (Atot < 0.35f){
-	  	char test[50] = "Gevallen!!!!";
-	  	HAL_UART_Transmit(&huart2, (uint8_t*)test, strlen(test), 1000);
-	  }
-
-	  HAL_Delay(50);
-
-
+	  HAL_Delay(20);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -593,101 +444,43 @@ void setLedBar(uint8_t index, uint8_t on){
 
 }
 
+void sendFallDetected(){
+	TxHeader.StdId = CAN_ID_FALL_DETECTED;
+	TxHeader.IDE   = CAN_ID_STD;
+	TxHeader.RTR   = CAN_RTR_DATA;
+	TxHeader.DLC   = 1;
+
+	TxData[0] = 0x01;
+
+	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+}
+
 void readAccelerometer(){
 	uint8_t acc_data[6];
-	HAL_I2C_Mem_Read(&hi2c1, ACC_ADR, 0x3B, 1, Rec_Data, 6, 100);
+	HAL_I2C_Mem_Read(&hi2c1, ACC_ADR, 0x3B, 1, acc_data, 6, 100);
 
 	X_RAW = (int16_t)(acc_data[0] << 8 | acc_data[1]);
 	Y_RAW = (int16_t)(acc_data[2] << 8 | acc_data[3]);
 	Z_RAW = (int16_t)(acc_data[4] << 8 | acc_data[5]);
 }
 
+void detectFall(){
+	Ax = X_RAW / 16384.0;
+	Ay = Y_RAW / 16384.0;
+	Az = Z_RAW / 16384.0;
+	Atot = sqrtf((Ax * Ax) + (Ay * Ay) + (Az * Az));
 
-void volgendeVentilatieStand(void)
-{
-    ventilatieStand++;
-
-    if (ventilatieStand > 3)
-    {
-        ventilatieStand = 0;
-    }
-}
-
-void toggleVerwarming(void)
-{
-    verwarmingAan = !verwarmingAan;
-}
-
-void verhoogTemperatuur(void)
-{
-    if (gewensteTemperatuur < 30)
-    {
-        gewensteTemperatuur++;
-    }
-}
-
-void verlaagTemperatuur(void)
-{
-    if (gewensteTemperatuur > 10)
-    {
-        gewensteTemperatuur--;
-    }
-}
-
-void updateVentilatieLeds(void)
-{
-    setLedBar(0, ventilatieStand >= 1);
-    setLedBar(1, ventilatieStand >= 2);
-    setLedBar(2, ventilatieStand >= 3);
-}
-
-void updateVerwarmingLeds(void)
-{
-    setLedBar(5, verwarmingAan);
-    setLedBar(7, gewensteTemperatuur >= 21);
-    setLedBar(8, gewensteTemperatuur >= 24);
-    setLedBar(9, gewensteTemperatuur >= 27);
-}
-
-void printStatus(void)
-{
-    char buffer[150];
-
-    sprintf(buffer,
-        "\r\n===== SYSTEEM STATUS =====\r\n"
-        "Ventilatie stand: %d\r\n"
-        "Verwarming: %s\r\n"
-        "Gewenste temperatuur: %d C\r\n",
-        ventilatieStand,
-        verwarmingAan ? "AAN" : "UIT",
-        gewensteTemperatuur);
-
-    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100);
+	if (Atot < 0.40f){
+		char test[50] = "Gevallen!!!!";
+		HAL_UART_Transmit(&huart2, (uint8_t*)test, strlen(test), 1000);
+		sendFallDetected();
+	}
 }
 
 // This function runs automatically whenever a CAN message arrives
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
-
-		char uart_buf[100];
-		int len;
-
-		// 1. Print the incoming CAN ID to the PC terminal
-		len = sprintf(uart_buf, "\r\n[RECEIVED FROM PI] ID: 0x%lX | DLC: %ld | Data: ", RxHeader.StdId, RxHeader.DLC);
-		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-
-		// 2. Loop through the data bytes and print them in Hex
-		for (int i = 0; i < RxHeader.DLC; i++) {
-			len = sprintf(uart_buf, "%02X ", RxData[i]);
-			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-		}
-
-		// 3. Print a new line at the end
-		len = sprintf(uart_buf, "\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-
-		// 4. Toggle the LED so you have a physical visual indicator!
-		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+		// code for receiving a message
 	}
 }
 

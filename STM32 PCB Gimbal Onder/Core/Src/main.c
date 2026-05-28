@@ -31,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define CAN_ID_BRAND_ALARM 0x120
+#define CAN_ID_BRAND_ALARM 0x010
 #define CAN_ID_SERVO_ONDER 0x230
 /* USER CODE END PD */
 
@@ -389,6 +389,11 @@ void openDoor(){
 		 doorOpen = 1;
 }
 
+void unlockDoor(){
+		 __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 1750); // Bij brand opent de deur voor 180 graden.
+		 doorOpen = 1;
+}
+
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
@@ -397,7 +402,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     		case CAN_ID_BRAND_ALARM:
     			if (RxData[0] == 0x01){
     				brandActief = 1;
-    				openDoor();
+    				unlockDoor(RxData[0]);
 
     			}else if (RxData[0] == 0x00){
     				brandActief = 0;

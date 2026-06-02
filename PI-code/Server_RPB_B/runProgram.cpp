@@ -19,8 +19,8 @@ std::map<std::string, std::string> rfidNames = {
     {"F4889C04", "Arts Marko"}
 };
 
-TCPServer serverIn;   // 8080 → Pi A
-TCPServer serverOut;  // 8081 → Qt/nc
+TCPServer serverIn;   // 8080 = Pi A
+TCPServer serverOut;  // 8081 = Qt/nc
 
 std::map<std::string, bool> rfidPresent; // true = aanwezig, false = weg
 
@@ -84,13 +84,15 @@ void runProgram::run(){
 
         FD_SET(serverIn.getServerFd(), &readfds);
         FD_SET(serverOut.getServerFd(), &readfds);
+        FD_SET(can.getFd(), &readfds);  // ← toevoegen
 
         if (clientA != -1)
             FD_SET(clientA, &readfds);
 
         int maxfd = std::max({serverIn.getServerFd(), 
                               serverOut.getServerFd(), 
-                              clientA});
+                              clientA,
+                              can.getFd()});  // ← toevoegen
 
         struct timeval timeout;
         timeout.tv_sec = 0;
@@ -101,19 +103,19 @@ void runProgram::run(){
             continue;
         }
 
-        // ✅ Pi A connect (PORT 8080)
+        // Connecten met Pi A op poort 8080.
         if (FD_ISSET(serverIn.getServerFd(), &readfds)) {
             clientA = serverIn.acceptClient();
             std::cout << "Pi A connected\n";
         }
 
-        // ✅ Qt/nc connect (PORT 8081)
+        // Connecten met QT op poort 8081.
         if (FD_ISSET(serverOut.getServerFd(), &readfds)) {
             clientB = serverOut.acceptClient();
             std::cout << "Qt/nc connected\n";
         }
 
-        // ✅ Data van Pi A → doorsturen
+        // Data van Pi A wordt doorgestuurd.
         if (clientA != -1 && FD_ISSET(clientA, &readfds)) {
 
             int len = recv(clientA, buffer, sizeof(buffer), 0);
@@ -130,7 +132,7 @@ void runProgram::run(){
 
             handleTcpMessage(incoming);
 
-            // 🔥 FORWARD naar Qt/nc
+            // Forwarden naar QT.
             if (clientB != -1) {
                 int sent = send(clientB, buffer, len, 0);
                 if (sent <= 0) {
@@ -141,7 +143,7 @@ void runProgram::run(){
             }
         }
 
-        // ✅ CAN → ook naar Qt/nc
+        // CAN gaat nu ook naar QT.
         if (FD_ISSET(can.getFd(), &readfds)) {
             struct can_frame frame;
 
@@ -156,9 +158,6 @@ void runProgram::run(){
 
         fallDetection();
     }
-
-  
-
 }
 
 void runProgram::canMessageHandler(const struct can_frame& frame){
@@ -172,6 +171,25 @@ void runProgram::canMessageHandler(const struct can_frame& frame){
             readDistance = distance;
             break;
         }
+		case 0x10: //Bericht van CAN_ID_BRAND_ALARM
+		{
+			uint8_t brandStatus = (frame.data[0]); // De data uit RxData[0] is de brandstatus.
+			//std::cout << "Brandstatus wordt nu: " << brandStatus << ", 1 = Actief, 0 = Inactief.\n";
+			
+			if(brandStatus == 0x01) //Bij brandstatus 1 moet de lamp op wit aan gaan en de ventilatie afgesloten worden.
+			{
+				handleTcpMessage("LED:ON"); //Allegedly de juiste manier om naar de correcte case te herleiden.
+				handleTcpMessage("VENT:OFF");
+                //std::cout << "LED turned ON2\n";
+			}
+			else if(brandStatus == 0x00) //Bij brandstatus 0 moet de lamp weer uit gaan en de ventilatie weer opengaan.
+			{
+				handleTcpMessage("LED:OFF");
+				handleTcpMessage("VENT:ON"); //Nog niet duidelijk of het een standaard stand wordt of de vorige stand.
+               // std::cout << "LED turned OFF2\n";
+			}
+			break;
+		}
 
         default:
             std::cout << "Unknown CAN ID\n";
@@ -187,8 +205,10 @@ MessageType runProgram::getMessageType(const std::string& key)
     if (key == "ID"){
         return MessageType::ID;
     }
+	if (key == "LED") //Als de key overeenkomt met de led wordt de waarde achter de : als value gezet.
+		return MessageType::LED;
 
-     return MessageType::UNKNOWN;
+    return MessageType::UNKNOWN;
 }
 
 void runProgram::handleTcpMessage(const std::string& msg) {
@@ -201,43 +221,68 @@ void runProgram::handleTcpMessage(const std::string& msg) {
         return;
     }
 
-    switch (getMessageType(key)){
+    switch (getMessageType(key))
+	{
         case MessageType::BED:
-            if (value == "ON"){
+            if (value == "ON")
+			{
                 std::cout << "BED turned ON\n";
                 bedPressure = true;
-            }else {
+            }else 
+			{
                 std::cout << "BED turned OFF\n";
                 bedPressure = false;
             }
+			break;
 
         case MessageType::ID:
-        {
+		{ //Er moeten haakjes tussen een case als een nieuwe variabele aangemaakt wordt, wat hier het geval is.
             bool isNowPresent = !rfidPresent[value]; // toggle
                 rfidPresent[value] = isNowPresent;
 
                 std::string name = rfidNames.count(value) ? rfidNames[value] : "Onbekend (" + value + ")";
                     std::string status = isNowPresent ? "aanwezig" : "vertrokken";
 
-            if (value == "D935D814"){ // Beheerder
-                if (isNowPresent) {
-            can.sendCAN(DEUR, {0x01});
-            // DASHBOARD AAN/OPEN
+            if (value == "D935D814")
+			{ // Beheerder
+                if (isNowPresent) 
+				{
+					can.sendCAN(DEUR, {0x01});
+					// DASHBOARD AAN/OPEN
                 }
-         } else if (value == "67B37A05") { // Bezoeker
-        if (isNowPresent) {
-        }
-    } else if (value == "B155721D") {
-        serverIn.sendClient("B:" + name + " " + status);
-    } else if (value == "F4889C04") {
-        serverIn.sendClient("B:" + name + " " + status);
-    }
+			} 
+			else if (value == "67B37A05") 
+			{ // Bezoeker
+				if (isNowPresent) 
+				{
+				}
+			}
+			else if (value == "B155721D") 
+			{
+				serverIn.sendClient("B:" + name + " " + status);
+                serverIn.sendClient("C:off");
+			} 
+			else if (value == "F4889C04") 
+			{
+				serverIn.sendClient("B:" + name + " " + status);
+                serverIn.sendClient("C:on");
+			}
+			break;
+		}
+		
+		
+		case MessageType::LED:
+			if (value == "ON") { //Bij value on moet aan de ledstrip verteld worden dat deze aan moet gaan.
+            std::cout << "LED turned ON\n";
+				serverIn.sendClient("C:on"); //Bij verbinding met wemos c moet dat bericht dan met c beginnen.
+			}
+			else if (value == "OFF") { //En anders mag deze weer uit.
+				serverIn.sendClient("C:off"); //klopt
+            }
 
-    break;
+			break;
+	}
 }
-}
-}
-
 
 void runProgram::fallDetection()
 {
@@ -269,10 +314,8 @@ void runProgram::fallDetection()
         // out of bed (send to dashboard)
     }
 
-    /**
-     * If there is no pressure anymore and the delta distance is greater
-     * than 30cm it means somebody fell out of their bed.
-     */
+    /*If there is no pressure anymore and the delta distance is greater
+     than 30cm, it means somebody fell out of their bed.*/
     if (justLeftBed)
     {
         if (dt <= 1 &&

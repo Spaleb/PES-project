@@ -4,6 +4,7 @@
 #include "DisplayMatrix.h"
 #include "RFID.h"
 #include "LedStrip.h"
+#include "MoistureSensor.h"
 
 
 const char* ssid = "NSELab";
@@ -12,13 +13,15 @@ const char* password = "NSELabWiFi";
 const char* serverIP = "145.52.127.166";
 const int serverPort = 5000;
 
-char DEVICE_ID = 'A';
+char DEVICE_ID = 'C';
 
 WiFiClient client;
 BedSensor bed(A0);
 LedCheck ledCheck;
 RFID rfid;
 LedStrip ledstrip;
+MoistureSensor msensor;
+
 
 void setup() {
 
@@ -91,6 +94,8 @@ void loop() {
   displayUpdate();
   bed.update();
   rfid.update();
+  msensor.loop();
+
 
   delay(50);
 }

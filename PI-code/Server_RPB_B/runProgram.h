@@ -8,6 +8,7 @@
 enum class MessageType {
     BED,
     ID,
+    LED,
     UNKNOWN
 };
 

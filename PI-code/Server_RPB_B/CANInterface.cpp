@@ -5,21 +5,13 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <cstring>
+#include <cstdint>
 
-/**
- * @brief Construct a new CANInterface::CANInterface object
- * 
- * @param name -> name of the can interface (can0)
- */
+// CANInterface constructor, needs the name of the interface (can0)
 CANInterface::CANInterface(const std::string& name) : interfaceName(name), sockfd(-1)
 {}
 
-/**
- * @brief Opens the CAN socket connection
- * 
- * @return true if succeeded
- * @return false if failed
- */
+// Opening the CAN interface
 bool CANInterface::open(){
     sockfd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (sockfd < 0) return false;
@@ -44,30 +36,31 @@ bool CANInterface::open(){
     return true;
 }
 
-/**
- * @brief Return the sockfd value 
- * 
- * @return int 
- */
 int CANInterface::getFd() const{
     return sockfd;
 }
 
-/**
- * @brief Simple function for reading the received can frame
- * 
- * @param frame 
- * @return true 
- * @return false 
- */
 bool CANInterface::readFrame(struct can_frame& frame){
     return read(sockfd, &frame, sizeof(frame)) > 0;
 }
 
-/**
- * @brief Destroy the CANInterface::CANInterface object if the connection is closed
- * 
- */
+void CANInterface::sendCAN(uint32_t id, std::initializer_list<uint8_t> data){
+    struct can_frame frame;
+
+    if (data.size() > 8)
+    return;
+
+    frame.can_id = id;
+    frame.can_dlc = data.size();
+
+    int i = 0;
+    for (uint8_t byte : data){
+        frame.data[i++] = byte;
+    }
+
+    write(sockfd, &frame, sizeof(frame));
+}
+
 CANInterface::~CANInterface() {
     if (sockfd >= 0) {
         close(sockfd);

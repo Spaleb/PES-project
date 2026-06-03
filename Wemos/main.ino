@@ -14,7 +14,7 @@ const char* password = "NSELabWiFi";
 const char* serverIP = "145.52.127.166";
 const int serverPort = 5000;
 
-char DEVICE_ID = 'B';
+char DEVICE_ID = 'B'; //A; BED, RFID | B; SHT3X, MATRIX | C; LEDStrip, MOIS
 
 WiFiClient client;
 BedSensor bed(A0);
@@ -23,6 +23,7 @@ RFID rfid;
 LedStrip ledstrip;
 MoistureSensor msensor;
 SHT3xSensor sht3x;
+DisplayMatrix display;
 
 
 
@@ -42,11 +43,16 @@ void setup() {
   client.println(DEVICE_ID);
   client.print('\n');
 
-  ledCheck.begin();
-  displayInit();
-  rfid.begin();
-  ledstrip.begin();
+ //ID A;
+   //rfid.begin();
+
+  //ID B;
     sht3x.begin();
+    display.init();
+
+  //ID C;
+  //ledstrip.begin();
+  
 
 }
 
@@ -71,14 +77,15 @@ void loop() {
       msg.trim();
 
       if (msg.length() > 0) {
-      if (msg == "LEDon" || msg == "LEDoff" || msg == "red" || msg == "green" || msg == "blue") {
+
+        if (msg == "LEDon" || msg == "LEDoff" || msg == "red" || msg == "green" || msg == "blue" || msg == "LEDBRANDON" || msg == "LEDBRANDOFF") {
           ledstrip.handleCommand(msg, client);
-        }  
+        }
         else if (msg == "VENTon" || msg == "VENToff") {
           sht3x.handleCommand(msg, client);
-        }  
+        }
         else {
-          displayShow(msg.c_str());
+          display.handleCommand(msg, client);
         }
       }
 
@@ -88,14 +95,16 @@ void loop() {
     }
   }
 
-
-  ledCheck.update();
-  displayUpdate();
-  bed.update();
-  rfid.update();
-  msensor.loop();
+  //A;
+  //bed.update();
+  //rfid.update();
+ 
+  //B;
+  display.update();
   sht3x.loop();
 
+  //C;
+  //msensor.loop();
 
   delay(50);
 }

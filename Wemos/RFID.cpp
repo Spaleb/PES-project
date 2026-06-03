@@ -29,11 +29,7 @@ void RFID::begin() {
     while (1);
   }
 
-  Serial.println("PN532 OK");
-  client.println("PN532 OK");
-
   nfc.SAMConfig();
-  Serial.println("Wacht op kaart...");
 }
 
 /**
@@ -63,8 +59,6 @@ void RFID::update() {
   );
 
   if (!success) {
-    // reset when card removed
-    //lastUID = "";
     return;
   }
 
@@ -87,6 +81,5 @@ void RFID::update() {
   lastUID = uidStr;
   lastSentTime = millis();
 
-  Serial.println("Kaart: " + uidStr);
   client.println("ID:" + uidStr);
 }

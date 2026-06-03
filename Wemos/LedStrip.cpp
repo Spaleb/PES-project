@@ -18,9 +18,9 @@ void LedStrip::handleCommand(String command, WiFiClient &client)
     setLight(0, 255, 0, 50); //Stressverlagend.
   else if (command == "blue")
     setLight(0, 0, 255, 50); //Blauw licht voor alertheid en betere stemming overdag.
-  else if (command == "on")
+  else if (command == "LEDon")
     setLight(255, 255, 255, 75); //Wit licht als aangegeven wordt dat de lampen aan moeten.
-  else if (command == "off")
+  else if (command == "LEDoff")
     setLight(255, 255, 255, 0); //Als brightness 0 is staan de lampen uit.
 }
 

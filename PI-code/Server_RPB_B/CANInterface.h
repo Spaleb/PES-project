@@ -1,14 +1,10 @@
-#ifndef CANINTERFACE_H
+    #ifndef CANINTERFACE_H
 #define CANINTERFACE_H
 
 #include <string>
 #include <linux/can.h>
-
-/**
- * @brief CANInterface class. Class is needed for setting up the connection
- * with the microcontrollers connected via CAN.
- * 
- */
+#include <initializer_list>
+#include <cstdint>
 
 class CANInterface{
 public:
@@ -17,6 +13,7 @@ public:
     bool open();
     int getFd() const;
     bool readFrame(struct can_frame& frame);
+    void sendCAN(uint32_t id, std::initializer_list<uint8_t> data);
 
     ~CANInterface();
 

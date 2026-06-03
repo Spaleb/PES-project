@@ -6,20 +6,9 @@
 #include <cstring>
 #include <iostream>
 
-/**
- * @brief Construct a new TCPServer::TCPServer object
- * 
- */
-TCPServer::TCPServer(){}
+TCPServer::TCPServer() : server_fd(-1), client_fd(-1) {}
 
-/**
- * @brief Opening the TCP socket and listening for available clients
- * 
- * @param port (8080)
- * @return true 
- * @return false 
- */
-bool TCPServer::start(int port){
+bool TCPServer::start(int port) {
     sockaddr_in address{};
     int opt = 1;
 
@@ -35,64 +24,41 @@ bool TCPServer::start(int port){
     if (bind(server_fd, (sockaddr*)&address, sizeof(address)) < 0)
         return false;
 
-    if (listen(server_fd, 3) < 0)
+    if (listen(server_fd, 5) < 0)
         return false;
 
     return true;
 }
 
-
-/**
- * @brief Accepting the request of pending clients.
- * Clients can connect at all time, also after being disconnected.
- * 
- * @return int 
- */
-int TCPServer::acceptClient(){
+int TCPServer::acceptClient() {
     sockaddr_in addr{};
     socklen_t len = sizeof(addr);
 
-    client_fd = accept(server_fd, (sockaddr*)&addr, &len);
-    return client_fd;
+    int newClient = accept(server_fd, (sockaddr*)&addr, &len);
+    if (newClient >= 0) {
+        client_fd = newClient;
+    }
+
+    return newClient;
 }
-/**
- * @brief Returns the client_fd
- * 
- * @return int client_fd
- */
-int TCPServer::getCLientFd() const{
+
+int TCPServer::getClientFd() const {
     return client_fd;
 }
 
-/**
- * @brief Return the server_fd
- * 
- * @return int server_fd
- */
-int TCPServer::getServerFd() const{
+int TCPServer::getServerFd() const {
     return server_fd;
 }
 
-/**
- * @brief Reads the messages that have been send over TCP
- * 
- * @param buffer 
- * @param size 
- * @return int 
- */
-int TCPServer::readClient(char* buffer, int size){
-    return read(client_fd, buffer, size);
-}
-
 int TCPServer::sendClient(const std::string& msg) {
+    if (client_fd < 0) {
+        return -1;
+    }
+
     return send(client_fd, msg.c_str(), msg.size(), 0);
 }
 
-/**
- * @brief Destroy the TCPServer::TCPServer object
- * 
- */
-TCPServer::~TCPServer(){
+TCPServer::~TCPServer() {
     if (client_fd >= 0) {
         close(client_fd);
     }

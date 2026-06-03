@@ -29,11 +29,7 @@ void RFID::begin() {
     while (1);
   }
 
-  Serial.println("PN532 OK");
-  client.println("PN532 OK");
-
   nfc.SAMConfig();
-  Serial.println("Wacht op kaart...");
 }
 
 /**
@@ -44,7 +40,10 @@ void RFID::begin() {
  */
 void RFID::update() {
   static unsigned long lastRead = 0;
+  static String lastUID = "";
+
   const unsigned long interval = 150;
+  const unsigned long cooldown = 1000; // 1 second
 
   if (millis() - lastRead < interval) return;
   lastRead = millis();
@@ -59,7 +58,9 @@ void RFID::update() {
     50
   );
 
-  if (!success) return;
+  if (!success) {
+    return;
+  }
 
   String uidStr = "";
 
@@ -70,10 +71,15 @@ void RFID::update() {
 
   uidStr.toUpperCase();
 
-  // if (uidStr != lastUID) {
-  //   lastUID = uidStr;
+  static unsigned long lastSentTime = 0;
 
-    Serial.println("Kaart: " + uidStr);
-    client.println("ID:" + uidStr);
-  // }
+  // prevent spam
+  if (uidStr == lastUID && millis() - lastSentTime < cooldown) {
+    return;
+  }
+
+  lastUID = uidStr;
+  lastSentTime = millis();
+
+  client.println("ID:" + uidStr);
 }

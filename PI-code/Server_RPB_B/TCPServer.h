@@ -3,18 +3,13 @@
 
 #include <string>
 
-/**
- * @brief TCPServer class. Listens for connections and accepts client
- * that want to connect. 
- * 
- */
 class TCPServer{
 public:
     TCPServer();
 
     bool start(int port);
     int acceptClient();
-    int getCLientFd() const;
+    int getClientFd() const;
     int getServerFd() const;
     int readClient(char* buffer, int size);
     int sendClient(const std::string& msg);

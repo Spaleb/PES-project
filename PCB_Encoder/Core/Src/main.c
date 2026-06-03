@@ -25,7 +25,7 @@
 #define CAN_ID_DISTANCE_SENSOR   0x102
 #define CAN_ID_SENSOR_REQUEST    0x300
 
-#define CAN_ID_BRAND_ALARM        0x120
+#define CAN_ID_BRAND_ALARM        0x10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,6 +52,7 @@ volatile uint8_t last_source = 0;
 volatile uint8_t readDistance = 0;
 
 volatile uint8_t knopIngedrukt = 0;
+volatile uint8_t brandActief = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,7 +62,7 @@ static void MX_CAN1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-void sendBrandAlarm(void);
+void sendBrandAlarm(uint8_t);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -188,7 +189,7 @@ int main(void)
   }
 
   // Startup message
-  char boot_msg[] = "\r\n\r\n--- STM32 ENCODER PCB RUNNING ---\r\n";
+  char boot_msg[] = "\r\n\r\n--- STM32 MATRIX PCB RUNNING ---\r\n";
   HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
 
   HAL_TIM_Base_Start(&htim2);
@@ -210,23 +211,24 @@ while (1)
 	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
 	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
 
-//	  char ms[50];
-//	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
-//	  sprintf(ms, "CNT: %lu\r\n", cnt);
-//	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
 	  transmitDistance();
 
 	  if (knopIngedrukt)
 	  	{
-		  //sendBrandAlarm();
+		  brandActief = !brandActief; //Toggle de brandstatus aan de hand van elke button press.
+		  sendBrandAlarm(brandActief);//Voor het versturen van een CAN bericht bij het indrukken van de knop, die als parameter meegaat.
 		  char buffer[50];
-		  sprintf(buffer, "Knop ingedrukt, er is brand gemeld. \r\n");
+
+		  if(brandActief)
+			  sprintf(buffer, "Knop ingedrukt, er is brand gemeld. \r\n"); //Testbericht dat het op PuTTY te zien is.
+		  else
+			  sprintf(buffer, "Knop ingedrukt, brandstatus opgeheven. \r\n"); //Testbericht.
+
 		  HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100);
 	  	  knopIngedrukt = 0;
 	  	}
 
-
-	  HAL_Delay(500);
+	  //HAL_Delay(50); //Nog nagaan of dit voor problemen zorgt? Originally 500.
   }
   /* USER CODE END 3 */
 }
@@ -316,7 +318,7 @@ static void MX_CAN1_Init(void)
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = ENABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
   hcan1.Init.ReceiveFifoLocked = DISABLE;
   hcan1.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK)
@@ -452,6 +454,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Ultrasoon_Output_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -476,15 +484,15 @@ static void MX_GPIO_Init(void)
 //  GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
 //  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PB1 */
-    GPIO_InitStruct.Pin = GPIO_PIN_1;
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pin : PB1 */ //Oude knop pin waar we nu vanaf zijn gestapt.
+//    GPIO_InitStruct.Pin = GPIO_PIN_1;
+//    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+//    GPIO_InitStruct.Pull = GPIO_PULLUP;
+//    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-    HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+//    HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+//    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
@@ -505,10 +513,6 @@ void transmitDistance(){
 	uint16_t newDistance = Distance;
 
 	if (abs((int)newDistance - (int)lastDistance) > 10){
-		char msg[50];
-		sprintf(msg, "Afstand is verstuurd via CAN %d\r\n", Distance);
-		HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
-
 		TxHeader.StdId = CAN_ID_DISTANCE_SENSOR;
 	    TxHeader.IDE   = CAN_ID_STD;
 	    TxHeader.RTR   = CAN_RTR_DATA;
@@ -525,20 +529,35 @@ void transmitDistance(){
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin == GPIO_PIN_1)
-    	knopIngedrukt = 1;
+    //Anti debouncing en interrupt program freeze?
+    static uint32_t lastButtonPress = 0;
+    uint32_t rightNow = HAL_GetTick(); //GetTick() haalt het aantal milliseconden op since startup of reset.
+    uint32_t tijdInterval = 200;
+
+    if (GPIO_Pin == GPIO_PIN_4 && (rightNow - lastButtonPress) > tijdInterval) //PB indrukken voor de knop en als de debounce tijd buiten de gestelde interval valt.
+    {
+    	knopIngedrukt = 1; //Knop is daadwerkelijk ingedrukt.
+        lastButtonPress = rightNow; //Verzet de aanroep.
+    }
 }
 
-void sendBrandAlarm(void)
+void sendBrandAlarm(uint8_t brandStatus)
 {
 	TxHeader.StdId = CAN_ID_BRAND_ALARM; //Het ID van de sensor dat verantwoordelijk wordt voor registeren van brand.
 	TxHeader.IDE = CAN_ID_STD; //Constante.
 	TxHeader.RTR = CAN_RTR_DATA; //Constante
 	TxHeader.DLC = 1; //Het aantal databits dat verzonden wordt.
 
-	TxData[0] = 0x01;  //Data met waarde voor registratie van brand.
+	TxData[0] = brandStatus;  //Data met waarde voor registratie van brand, adhv of een 0 of 1 als parameter meegegeven is.
 
 	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData,  &TxMailbox); // Versturen van dat er brand geregistreerd is.
+
+//	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)
+//	{
+//	    char err[] = "CAN TX FAILED\r\n";
+//	    HAL_UART_Transmit(&huart2, (uint8_t*)err, strlen(err), 100);
+//	}
+
 }
 /* USER CODE END 4 */
 

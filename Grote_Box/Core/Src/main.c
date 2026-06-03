@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +33,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define GYRO_ADDR  (0x68 << 1)
+#define PATIENT_FALLEN 0x20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,8 +68,8 @@ static void MX_USART2_UART_Init(void);
 static void MX_CAN1_Init(void);
 /* USER CODE BEGIN PFP */
 void setLedBar(uint8_t index, uint8_t on);
-void setLed0(uint8_t on);
-void setLed1(uint8_t on);
+void readGYRO(void);
+void sendFallAlarm(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -140,20 +142,6 @@ int main(void)
   	  Error_Handler();
     }
 
-    // Prepare the Transmit Header (The Envelope)
-    TxHeader.StdId = 0x777;                 // Give this STM32 a recognizable ID
-    TxHeader.ExtId = 0x00;
-    TxHeader.IDE = CAN_ID_STD;
-    TxHeader.RTR = CAN_RTR_DATA;
-    TxHeader.DLC = 4;                       // Sending 4 bytes
-    TxHeader.TransmitGlobalTime = DISABLE;
-
-    // Print a startup message to the PC so we know it booted safely
-    char boot_msg[] = "\r\n\r\n--- STM32 CAN NODE ALIVE & RUNNING ---\r\n";
-    HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
-
-
-
   // IODIRA (0x00) → alle A‑pins output
   HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x00, 1, &setA, 1, 100);
 
@@ -173,66 +161,18 @@ int main(void)
   setLedBar(9,1);
   setLedBar(7,1);
 
+  // Wake up van de GYRO/IMU
+  uint8_t data = 0;
+  HAL_I2C_Mem_Write(&hi2c1, GYRO_ADDR, 0x6B, 1, &data, 1, 100);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	    uint8_t value = 0;
-	    HAL_I2C_Mem_Read(&hi2c1, 0x21 << 1, 0x13, 1, &value, 1, 100);
-	    uint8_t a = HAL_GPIO_ReadPin(GPIOB, LED_Button_0_Pin);
-	    uint8_t b = HAL_GPIO_ReadPin(GPIOA, LED_Button_1_Pin);
-
-	    if (!(value & (1 << 2))){
-	    	setLedBar(2,1);
-	    	//HAL_GPIO_WritePin(GPIOA, Servo_Onder_Pin, 1);
-	    }else{
-	    	setLedBar(2,0);
-	    }
-
-	    if(!(value & (1 << 4))){
-	    	setLedBar(1,1);
-	    }else{
-	    	setLedBar(1,0);
-	    }
-
-	    if(!(value & (1 << 6))){
-	    	setLedBar(0,1);
-	    }else{
-	    	setLedBar(0,0);
-	    }
-
-	    if(!a){
-	    	setLedBar(4,1);
-	    }else{
-	    	setLedBar(4,0);
-	    }
-
-	    if(!b){
-	    	setLedBar(3,1);
-	    }else{
-	    	setLedBar(3,0);
-	    }
-
-	    // Load the Heartbeat Data
-	    	  TxData[0] = 0x42;
-	    	  TxData[1] = 0x52;
-	    	  TxData[2] = 0x62;
-	    	  TxData[3] = 0x72;
-
-	    	  // Try to send the message to the Raspberry Pi
-	    	  if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK) {
-	    		  // Print to PC to confirm it pushed to the CAN bus
-	    		  char tx_msg[] = "-> Sent Heartbeat to Pi (ID 0x777)\r\n";
-	    		  HAL_UART_Transmit(&huart2, (uint8_t*)tx_msg, strlen(tx_msg), 100);
-	    	  } else {
-	    		  // Print to PC if it failed (e.g. Pi is disconnected)
-	    		  char err_msg[] = "X Failed to send Heartbeat (No ACK from Pi)\r\n";
-	    		  HAL_UART_Transmit(&huart2, (uint8_t*)err_msg, strlen(err_msg), 100);
-	    	  }
-
-	    	  HAL_Delay(500);
+	  readGYRO();
+	  HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -465,6 +405,44 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void sendFallAlarm(void)
+{
+	char alarm_msg[] = "\r\nVAL GEDETECTEERD!\r\n";
+	HAL_UART_Transmit(&huart2, (uint8_t*)alarm_msg, strlen(alarm_msg), 1000);
+
+	TxHeader.StdId = PATIENT_FALLEN;
+	TxHeader.IDE = CAN_ID_STD;
+	TxHeader.RTR = CAN_RTR_DATA;
+	TxHeader.DLC = 1;
+	TxHeader.TransmitGlobalTime = DISABLE;
+
+	TxData[0] = 0x01;
+
+	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData,  &TxMailbox);
+}
+
+void readGYRO(){
+	uint8_t gyroRead[6];
+	float Ax, Ay, Az;
+	int16_t X_GYRO, Y_GRYO, Z_GYRO;
+	float Atot;
+
+	HAL_I2C_Mem_Read(&hi2c1, GYRO_ADDR, 0x3B, 1, gyroRead, 6, 100);
+
+	X_GYRO = (int16_t)(gyroRead[0] << 8 | gyroRead[1]);
+	Y_GRYO = (int16_t)(gyroRead[2] << 8 | gyroRead[3]);
+    Z_GYRO = (int16_t)(gyroRead[4] << 8 | gyroRead[5]);
+
+    Ax = X_GYRO / 16384.0;
+	Ay = Y_GRYO / 16384.0;
+	Az = Z_GYRO / 16384.0;
+
+	Atot = sqrtf((Ax * Ax) + (Ay * Ay) + (Az * Az));
+	if (Atot < 0.80){
+		sendFallAlarm();
+	}
+}
+
 void setLedBar(uint8_t index, uint8_t on){
 	if (index < 8){
 		if (on){
@@ -489,25 +467,6 @@ void setLedBar(uint8_t index, uint8_t on){
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
 
-		char uart_buf[100];
-		int len;
-
-		// 1. Print the incoming CAN ID to the PC terminal
-		len = sprintf(uart_buf, "\r\n[RECEIVED FROM PI] ID: 0x%lX | DLC: %ld | Data: ", RxHeader.StdId, RxHeader.DLC);
-		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-
-		// 2. Loop through the data bytes and print them in Hex
-		for (int i = 0; i < RxHeader.DLC; i++) {
-			len = sprintf(uart_buf, "%02X ", RxData[i]);
-			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-		}
-
-		// 3. Print a new line at the end
-		len = sprintf(uart_buf, "\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, len, 100);
-
-		// 4. Toggle the LED so you have a physical visual indicator!
-		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	}
 }
 

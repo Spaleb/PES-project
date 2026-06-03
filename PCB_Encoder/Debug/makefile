@@ -51,7 +51,6 @@ default.size.stdout \
 
 OBJDUMP_LIST += \
 PCB_Encoder.list \
-<<<<<<< HEAD
 
 
 # All Target
@@ -93,46 +92,3 @@ warn-no-linker-script-specified:
 .PHONY: all clean dependents main-build fail-specified-linker-script-missing warn-no-linker-script-specified
 
 -include ../makefile.targets
-=======
-
-
-# All Target
-all: main-build
-
-# Main-build Target
-main-build: PCB_Encoder.elf secondary-outputs
-
-# Tool invocations
-PCB_Encoder.elf PCB_Encoder.map: $(OBJS) $(USER_OBJS) C:\Users\shark\Documents\GitHub\PES-project\PCB_Encoder\STM32L432KCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "PCB_Encoder.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\shark\Documents\GitHub\PES-project\PCB_Encoder\STM32L432KCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="PCB_Encoder.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
-	@echo 'Finished building target: $@'
-	@echo ' '
-
-default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-size  $(EXECUTABLES)
-	@echo 'Finished building: $@'
-	@echo ' '
-
-PCB_Encoder.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "PCB_Encoder.list"
-	@echo 'Finished building: $@'
-	@echo ' '
-
-# Other Targets
-clean:
-	-$(RM) PCB_Encoder.elf PCB_Encoder.list PCB_Encoder.map default.size.stdout
-	-@echo ' '
-
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
-
-fail-specified-linker-script-missing:
-	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'
-	@exit 2
-
-warn-no-linker-script-specified:
-	@echo 'Warning: No linker script specified. Check the linker settings in the build configuration.'
-
-.PHONY: all clean dependents main-build fail-specified-linker-script-missing warn-no-linker-script-specified
-
--include ../makefile.targets
->>>>>>> branch 'Development' of https://github.com/Spaleb/PES-project.git

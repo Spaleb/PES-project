@@ -12,6 +12,7 @@ public:
     void clearBrand();
     void on();
     void off();
+    void brandOn();
     void handleCommand(const String& msg, WiFiClient& client);
 };
 

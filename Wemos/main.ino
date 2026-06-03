@@ -5,6 +5,7 @@
 #include "RFID.h"
 #include "LedStrip.h"
 #include "MoistureSensor.h"
+#include "SHT3x.h"
 
 
 const char* ssid = "NSELab";
@@ -13,7 +14,7 @@ const char* password = "NSELabWiFi";
 const char* serverIP = "145.52.127.166";
 const int serverPort = 5000;
 
-char DEVICE_ID = 'C';
+char DEVICE_ID = 'B';
 
 WiFiClient client;
 BedSensor bed(A0);
@@ -21,6 +22,8 @@ LedCheck ledCheck;
 RFID rfid;
 LedStrip ledstrip;
 MoistureSensor msensor;
+SHT3xSensor sht3x;
+
 
 
 void setup() {
@@ -28,7 +31,6 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   WiFi.begin(ssid, password);
-  Serial.println("Start OK");
 
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -44,11 +46,7 @@ void setup() {
   displayInit();
   rfid.begin();
   ledstrip.begin();
-
-
-
-  Serial.println("Start OK2");
-
+    sht3x.begin();
 
 }
 
@@ -95,6 +93,7 @@ void loop() {
   bed.update();
   rfid.update();
   msensor.loop();
+  sht3x.loop();
 
 
   delay(50);

@@ -9,6 +9,8 @@ enum class MessageType {
     BED,
     ID,
     LED,
+	VENT,
+    MATRIX,
     UNKNOWN
 };
 

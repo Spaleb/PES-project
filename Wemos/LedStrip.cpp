@@ -10,16 +10,8 @@ void LedStrip::begin() {
     FastLED.show();
 }
 
-//void LedStrip::update() {
-//    // momenteel niets nodig, maar handig voor later (animaties etc.)
-//}
-
 void LedStrip::handleCommand(String command, WiFiClient &client) 
 {
-  Serial.println("Received LED command: " + command); //debug functie
-  client.println("Received LED command: " + command); //debug functie
-
-
   if (command == "red")
     setLight(255, 0, 0, 50); //Angstverlichtend, beter slapen.
   else if (command == "green")

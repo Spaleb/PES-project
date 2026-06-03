@@ -16,7 +16,8 @@ std::map<std::string, std::string> rfidNames = {
     {"D935D814", "Beheerder"},
     {"67B37A05", "Bezoeker"},
     {"B155721D", "Verzorger Jan"},
-    {"F4889C04", "Arts Marko"}
+    {"F4889C04", "Arts Marko"},
+    {"5CCC2502", "Client Evert"}
 };
 
 TCPServer serverIn;   // 8080 = Pi A
@@ -178,15 +179,17 @@ void runProgram::canMessageHandler(const struct can_frame& frame){
 			
 			if(brandStatus == 0x01) //Bij brandstatus 1 moet de lamp op wit aan gaan en de ventilatie afgesloten worden.
 			{
-				handleTcpMessage("LED:ON"); //Allegedly de juiste manier om naar de correcte case te herleiden.
+				handleTcpMessage("LED:BRANDON"); //Allegedly de juiste manier om naar de correcte case te herleiden.
 				handleTcpMessage("VENT:OFF");
+                handleTcpMessage("MATRIX:BRANDON"); //Bericht voor Matrixdisplay dat er brand is.
                 //std::cout << "LED turned ON2\n";
 			}
 			else if(brandStatus == 0x00) //Bij brandstatus 0 moet de lamp weer uit gaan en de ventilatie weer opengaan.
 			{
-				handleTcpMessage("LED:OFF");
+				handleTcpMessage("LED:BRANDOFF");
 				handleTcpMessage("VENT:ON"); //Nog niet duidelijk of het een standaard stand wordt of de vorige stand.
-               // std::cout << "LED turned OFF2\n";
+                handleTcpMessage("MATRIX:BRANDOFF");
+                // std::cout << "LED turned OFF2\n";
 			}
 			break;
 		}
@@ -207,7 +210,10 @@ MessageType runProgram::getMessageType(const std::string& key)
     }
 	if (key == "LED") //Als de key overeenkomt met de led wordt de waarde achter de : als value gezet.
 		return MessageType::LED;
-
+	if (key == "VENT")
+		return MessageType::VENT;
+    if (key == "MATRIX")
+        return MessageType::MATRIX;
     return MessageType::UNKNOWN;
 }
 
@@ -236,53 +242,109 @@ void runProgram::handleTcpMessage(const std::string& msg) {
 			break;
 
         case MessageType::ID:
-		{ //Er moeten haakjes tussen een case als een nieuwe variabele aangemaakt wordt, wat hier het geval is.
+        { // Haakjes vereist omdat er variabelen aangemaakt worden.
             bool isNowPresent = !rfidPresent[value]; // toggle
-                rfidPresent[value] = isNowPresent;
+            rfidPresent[value] = isNowPresent;
 
-                std::string name = rfidNames.count(value) ? rfidNames[value] : "Onbekend (" + value + ")";
-                    std::string status = isNowPresent ? "aanwezig" : "vertrokken";
+            std::string name   = rfidNames.count(value) ? rfidNames[value] : "Onbekend (" + value + ")";
+            std::string status = isNowPresent ? "aanwezig" : "vertrokken";
 
             if (value == "D935D814")
-			{ // Beheerder
-                if (isNowPresent) 
-				{
-					can.sendCAN(DEUR, {0x01});
-					// DASHBOARD AAN/OPEN
+            { // Beheerder
+                if (isNowPresent)
+                {
+                    can.sendCAN(DEUR, {0x01});
+                    // DASHBOARD AAN/OPEN
                 }
-			} 
-			else if (value == "67B37A05") 
-			{ // Bezoeker
-				if (isNowPresent) 
-				{
-				}
-			}
-			else if (value == "B155721D") 
-			{
-				serverIn.sendClient("B:" + name + " " + status);
-                serverIn.sendClient("C:off");
-			} 
-			else if (value == "F4889C04") 
-			{
-				serverIn.sendClient("B:" + name + " " + status);
-                serverIn.sendClient("C:on");
-			}
-			break;
-		}
-		
-		
-		case MessageType::LED:
-			if (value == "ON") { //Bij value on moet aan de ledstrip verteld worden dat deze aan moet gaan.
-            std::cout << "LED turned ON\n";
-				serverIn.sendClient("C:on"); //Bij verbinding met wemos c moet dat bericht dan met c beginnen.
-			}
-			else if (value == "OFF") { //En anders mag deze weer uit.
-				serverIn.sendClient("C:off"); //klopt
             }
+            else if (value == "67B37A05")
+            { // Bezoeker
+                if (isNowPresent)
+                {
+                }
+            }
+            else if (value == "B155721D")
+            {
+                serverIn.sendClient("B:" + name + " " + status);
+            }
+            else if (value == "F4889C04")
+            {
+                serverIn.sendClient("B:" + name + " " + status);
+            }
+            else if (value == "5CCC2502")
+            {
+                if (isNowPresent)
+                {
+                    handleTcpMessage("MATRIX:ON");
+                }
+                else
+                {
+                    handleTcpMessage("MATRIX:OFF");
+                }
+            } // sluit 5CCC2502 blok
 
-			break;
-	}
-}
+            break;
+        } // sluit case MessageType::ID scope
+
+
+        case MessageType::LED:
+            if (value == "BRANDON")
+            {
+                serverIn.sendClient("C:LEDBRANDON\n");
+            }
+            else if (value == "BRANDOFF")
+            {
+                serverIn.sendClient("C:LEDBRANDOFF\n");
+            }
+            if (value == "ON")
+            {
+                serverIn.sendClient("C:LEDon\n");
+            }
+            else if (value == "OFF")
+            {
+              
+            break;
+
+
+        case MessageType::VENT:
+            if (value == "ON")
+            {
+                serverIn.sendClient("B:VENTon\n");
+            }
+            else if (value == "OFF")
+            {
+                serverIn.sendClient("B:VENToff\n");
+            }
+            break;
+
+
+        case MessageType::MATRIX:
+            if (value == "BRANDON")
+            {
+                serverIn.sendClient(std::string("B:MATRIXBRANDON") + "\n");
+                serverIn.sendClient(std::string("Brand, gebouw verlaten") + "\n");
+                
+            }
+            else if (value == "BRANDOFF")
+            {
+                serverIn.sendClient(std::string("MATRIXClear") + "\n");
+            }
+            else if (value == "ON")
+            {
+                serverIn.sendClient(std::string("B:MATRIXON") + "\n");
+                serverIn.sendClient(std::string("C:LEDon") + "\n");
+
+            }
+            else if (value == "OFF")
+            {
+                serverIn.sendClient(std::string("B:MATRIXOFF") + "\n");
+                serverIn.sendClient(std::string("C:LEDoff") + "\n");
+            } 
+            break;
+
+    } 
+} 
+
 
 void runProgram::fallDetection()
 {

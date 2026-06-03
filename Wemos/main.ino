@@ -71,12 +71,13 @@ void loop() {
       msg.trim();
 
       if (msg.length() > 0) {
-        if (msg == "1" || msg == "2") {
-          ledCheck.handleCommand(msg[0]);
-        } 
-        else if (msg == "on" || msg == "off" || msg == "red" || msg == "green" || msg == "blue") {
+      if (msg == "LEDon" || msg == "LEDoff" || msg == "red" || msg == "green" || msg == "blue") {
           ledstrip.handleCommand(msg, client);
-        }  else {
+        }  
+        else if (msg == "VENTon" || msg == "VENToff") {
+          sht3x.handleCommand(msg, client);
+        }  
+        else {
           displayShow(msg.c_str());
         }
       }

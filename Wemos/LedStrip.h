@@ -14,7 +14,7 @@ public:
     void update();
 
     // Ontvangt de tekst commando's van server
-    void handleCommand(String command, WiFiClient &client);
+    void handleCommand(String msg, WiFiClient &client);
 
 private:
     CRGB leds[NUM_LEDS];

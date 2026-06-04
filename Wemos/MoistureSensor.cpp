@@ -9,7 +9,7 @@ int MoistureSensor::readMoisturePercent() {
 void MoistureSensor::loop() {
   int moisture = readMoisturePercent();
 
-  if ((moisture - lastMoisture) > 2 || (lastMoisture - moisture) > 2) {
+  if ((moisture - lastMoisture) > 5 || (lastMoisture - moisture) > 5) {
     client.println("MOI:" + String(moisture));
 
     lastMoisture = moisture;

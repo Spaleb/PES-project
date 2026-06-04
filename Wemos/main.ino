@@ -8,10 +8,10 @@
 #include "SHT3x.h"
 
 
-const char* ssid = "NSELab";
-const char* password = "NSELabWiFi";
+const char* ssid = "PES-C";
+const char* password = "useruser";
 
-const char* serverIP = "145.52.127.166";
+const char* serverIP = "192.168.137.215";
 const int serverPort = 5000;
 
 char DEVICE_ID = 'B'; //A; BED, RFID | B; SHT3X, MATRIX | C; LEDStrip, MOIS

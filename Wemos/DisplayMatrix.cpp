@@ -12,15 +12,15 @@ extern WiFiClient client;
 extern char DEVICE_ID;
 
 #define DATA_PIN D7
-#define CLK_PIN  D5
-#define CS_PIN   D8
+#define CLK_PIN D5
+#define CS_PIN D8
 
 static MD_Parola display(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
 
 static bool active = false;
 static bool brandAlarmActive = false;
 static bool brandTextShown = false;
-static char currentText[64] = {0};
+static char currentText[64] = { 0 };
 
 void DisplayMatrix::init() {
   display.begin();
@@ -33,9 +33,8 @@ void DisplayMatrix::show(const char* text) {
 
     if (!brandTextShown) {
       brandTextShown = true;
-    } 
-    else {
-      return; 
+    } else {
+      return;
     }
   }
 
@@ -49,8 +48,7 @@ void DisplayMatrix::show(const char* text) {
     50,
     1000,
     PA_SCROLL_LEFT,
-    PA_SCROLL_LEFT
-  );
+    PA_SCROLL_LEFT);
   display.displayReset();
 }
 
@@ -66,7 +64,6 @@ void DisplayMatrix::brandOn() {
   brandAlarmActive = true;
   brandTextShown = false;
   active = true;
-  client.println("brand aan");
 }
 
 void DisplayMatrix::clearBrand() {
@@ -95,16 +92,16 @@ void DisplayMatrix::off() {
 
 void DisplayMatrix::handleCommand(const String& msg, WiFiClient& client) {
   String command = msg;
-  command.trim();   // verwijdert \n en \r
+  command.trim();  // verwijdert \n en \r
 
   int sep = command.indexOf(':');
   if (sep != -1) {
     command = command.substring(sep + 1);
   }
 
-  if      (command == "MATRIXClear")   clearBrand();
-  else if (command == "MATRIXON")      on();
-  else if (command == "MATRIXOFF")     off();
+  if (command == "MATRIXClear") clearBrand();
+  else if (command == "MATRIXON") on();
+  else if (command == "MATRIXOFF") off();
   else if (command == "MATRIXBRANDON") brandOn();
-  else                                 show(command.c_str());
+  else show(command.c_str());
 }

@@ -90,10 +90,14 @@ void runProgram::run(){
         if (clientA != -1)
             FD_SET(clientA, &readfds);
 
+        if (clientB != -1)  
+            FD_SET(clientB, &readfds);
+
         int maxfd = std::max({serverIn.getServerFd(), 
                               serverOut.getServerFd(), 
                               clientA,
-                              can.getFd()});  // ← toevoegen
+                              clientB,
+                              can.getFd()}); 
 
         struct timeval timeout;
         timeout.tv_sec = 0;
@@ -144,6 +148,21 @@ void runProgram::run(){
             }
         }
 
+        // Uitlezen van de QT Creator berichten 
+        if (clientB != -1 && FD_ISSET(clientB, &readfds)) {
+        int len = recv(clientB, buffer, sizeof(buffer), 0);
+
+        if (len <= 0) {
+            std::cout << "Qt disconnected\n";
+            close(clientB);
+            clientB = -1;
+        } else {
+            std::string incoming(buffer, len);
+            std::cout << "Van Qt: " << incoming << std::endl;
+            handleTcpMessage(incoming);   // ← verwerk het commando
+        }
+}
+
         // CAN gaat nu ook naar QT.
         if (FD_ISSET(can.getFd(), &readfds)) {
             struct can_frame frame;
@@ -156,8 +175,6 @@ void runProgram::run(){
                 }
             }
         }
-
-        fallDetection();
     }
 }
 
@@ -276,12 +293,14 @@ void runProgram::handleTcpMessage(const std::string& msg) {
                 if (isNowPresent)
                 {
                     handleTcpMessage("MATRIX:ON");
+                    handleTcpMessage("LED:ON");
                 }
                 else
                 {
                     handleTcpMessage("MATRIX:OFF");
+                    handleTcpMessage("LED:OFF");
                 }
-            } // sluit 5CCC2502 blok
+            }
 
             break;
         } // sluit case MessageType::ID scope
@@ -302,7 +321,8 @@ void runProgram::handleTcpMessage(const std::string& msg) {
             }
             else if (value == "OFF")
             {
-              
+                 serverIn.sendClient("C:LEDoff\n");
+            } 
             break;
 
 
@@ -322,7 +342,7 @@ void runProgram::handleTcpMessage(const std::string& msg) {
             if (value == "BRANDON")
             {
                 serverIn.sendClient(std::string("B:MATRIXBRANDON") + "\n");
-                serverIn.sendClient(std::string("Brand, gebouw verlaten") + "\n");
+                serverIn.sendClient(std::string("B:Brand, gebouw verlaten") + "\n");
                 
             }
             else if (value == "BRANDOFF")
@@ -332,61 +352,17 @@ void runProgram::handleTcpMessage(const std::string& msg) {
             else if (value == "ON")
             {
                 serverIn.sendClient(std::string("B:MATRIXON") + "\n");
-                serverIn.sendClient(std::string("C:LEDon") + "\n");
 
             }
             else if (value == "OFF")
             {
                 serverIn.sendClient(std::string("B:MATRIXOFF") + "\n");
-                serverIn.sendClient(std::string("C:LEDoff") + "\n");
-            } 
+            }
+            else 
+            {
+            serverIn.sendClient(std::string("B:" + value) + "\n");
+            }
             break;
 
     } 
 } 
-
-
-void runProgram::fallDetection()
-{
-    static bool prevBedPressure = false;
-    static uint16_t prevReadDistance = 0;
-    static std::time_t fallTime = 0;
-
-    std::time_t now = std::time(nullptr);
-
-    bool justLeftBed = (prevBedPressure && !bedPressure);
-
-    if (justLeftBed)
-    {
-        prevReadDistance = readDistance;
-        fallTime = now;
-        std::cout << "JUSTLEFTBED TRUE!!" << std::endl;
-        std::cout << prevReadDistance << std::endl;
-    }
-
-    double dt = std::difftime(now, fallTime);
-
-    if (bedPressure && readDistance >= 20 && readDistance <= 50)
-    {
-        // in bed (send to dashboard)
-    }
-
-    else if (!bedPressure)
-    {
-        // out of bed (send to dashboard)
-    }
-
-    /*If there is no pressure anymore and the delta distance is greater
-     than 30cm, it means somebody fell out of their bed.*/
-    if (justLeftBed)
-    {
-        if (dt <= 1 &&
-            std::abs((int)readDistance - (int)prevReadDistance) > 30)
-        {
-            std::cout << "FALL DETECTED!!" << std::endl;
-            // SENT CAN MESSAGE FOR ALARM
-        }
-    }
-
-    prevBedPressure = bedPressure;
-}

@@ -8,10 +8,10 @@
 #include "SHT3x.h"
 
 
-const char* ssid = "PES-C";
+const char* ssid = "PESC";
 const char* password = "useruser";
 
-const char* serverIP = "192.168.137.215";
+const char* serverIP = "192.168.137.230";
 const int serverPort = 5000;
 
 char DEVICE_ID = 'B'; //A; BED, RFID | B; SHT3X, MATRIX | C; LEDStrip, MOIS
@@ -43,15 +43,16 @@ void setup() {
   client.println(DEVICE_ID);
   client.print('\n');
 
+
  //ID A;
    //rfid.begin();
 
   //ID B;
-    sht3x.begin();
-    display.init();
+   sht3x.begin();
+  display.init();
 
   //ID C;
-  //ledstrip.begin();
+  // ledstrip.begin();
   
 
 }
@@ -96,8 +97,8 @@ void loop() {
   }
 
   //A;
-  //bed.update();
-  //rfid.update();
+  // bed.update();
+  // rfid.update();
  
   //B;
   display.update();

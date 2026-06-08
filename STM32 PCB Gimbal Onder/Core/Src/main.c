@@ -56,6 +56,7 @@ uint32_t            TxMailbox;
 
 volatile uint8_t brandActief = 0;
 volatile uint8_t doorOpen = 0;
+uint16_t signal;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -384,8 +385,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void openDoor(){
-		 __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 2000); // Bij brand opent de deur voor 180 graden.
+void openDoor(signal){
+		 __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, signal); // Bij brand opent de deur voor 180 graden.
 		 doorOpen = 1;
 }
 
@@ -406,13 +407,17 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
     			}else if (RxData[0] == 0x00){
     				brandActief = 0;
-
     			}
 
     			break; // Er hoeft niet verder gecheckt te worden bij brand
 
     		case CAN_ID_SERVO_ONDER:
-    			openDoor(RxData[0]);
+    			if (RxData[1] == 1){
+    				openDoor(2000);
+    			}else if (RxData[1] == 2){
+    				openDoor(900);
+    			}
+
     			break;
 
     		default:

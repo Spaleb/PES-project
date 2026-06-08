@@ -11,10 +11,10 @@
 const char* ssid = "PESC";
 const char* password = "useruser";
 
-const char* serverIP = "192.168.137.230";
+const char* serverIP = "10.42.0.92";
 const int serverPort = 5000;
 
-char DEVICE_ID = 'B'; //A; BED, RFID | B; SHT3X, MATRIX | C; LEDStrip, MOIS
+char DEVICE_ID = 'A'; //A; BED, RFID | B; SHT3X, MATRIX | C; LEDStrip, MOIS
 
 WiFiClient client;
 BedSensor bed(A0);
@@ -45,14 +45,14 @@ void setup() {
 
 
  //ID A;
-   //rfid.begin();
+  rfid.begin();
 
   //ID B;
-   sht3x.begin();
-  display.init();
+  //sht3x.begin();
+  //display.init();
 
   //ID C;
-  // ledstrip.begin();
+  //ledstrip.begin();
   
 
 }
@@ -97,12 +97,12 @@ void loop() {
   }
 
   //A;
-  // bed.update();
-  // rfid.update();
+  bed.update();
+  rfid.update();
  
   //B;
-  display.update();
-  sht3x.loop();
+  //display.update();
+  //sht3x.loop();
 
   //C;
   //msensor.loop();

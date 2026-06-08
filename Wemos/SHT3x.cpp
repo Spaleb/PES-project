@@ -3,6 +3,7 @@
 #include <ESP8266WiFi.h>
 
 extern WiFiClient client;
+extern char DEVICE_ID;
 
 void SHT3xSensor::begin() {
   Wire.begin(D2, D1);      
@@ -18,7 +19,7 @@ void SHT3xSensor::begin() {
 }
 
 void SHT3xSensor::loop() {
-  if (millis() - laatsteUpdate < 2000) return;
+  if (millis() - laatsteUpdate < 10000) return;
   laatsteUpdate = millis();
 
   if (leesSensor()) {
@@ -33,6 +34,15 @@ void SHT3xSensor::loop() {
   } else {
   }
 }
+
+void SHT3xSensor::handleCommand(String command, WiFiClient &client) 
+{
+	if (command == "VENToff")
+        brandActief = true;
+    else if (command == "VENTon") 
+        brandActief = false;
+}
+
 
 bool SHT3xSensor::leesSensor() {
   Wire.beginTransmission(SHT3X_ADRES);
@@ -77,7 +87,10 @@ float SHT3xSensor::getLuchtvochtigheid() {
   return luchtvochtigheid;
 }
 
-int SHT3xSensor::getVentilatieStand() {
+int SHT3xSensor::getVentilatieStand() 
+{
+  if (brandActief) return 0; //Als er brand is moet de laagste stand van de ventilatie gereturned worden. Anders mag de luchtvochtigheid weer gecheckt worden.
+	
   if (luchtvochtigheid >= 70.0) return 3;
   if (luchtvochtigheid >= 60.0) return 2;
   if (luchtvochtigheid >= 50.0) return 1;

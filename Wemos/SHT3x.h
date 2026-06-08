@@ -2,6 +2,7 @@
 #define SHT3X_H
 
 #include <Arduino.h>
+#include <ESP8266WiFi.h>
 
 class SHT3xSensor {
   private:
@@ -13,10 +14,13 @@ class SHT3xSensor {
     unsigned long laatsteUpdate = 0;
 
     bool leesSensor();
+    
+    bool brandActief = false;
 
   public:
     void begin();
     void loop();
+    void handleCommand(String command, WiFiClient &client);
 
     float getTemperatuur();
     float getLuchtvochtigheid();

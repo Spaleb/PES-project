@@ -166,10 +166,10 @@ int main(void)
   sFilterConfig.FilterBank = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterIdHigh = 0x0000;
-  sFilterConfig.FilterIdLow = 0x0000;
-  sFilterConfig.FilterMaskIdHigh = 0x0000;
-  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterIdHigh = 0xffff;
+  sFilterConfig.FilterIdLow = 0xffff;
+  sFilterConfig.FilterMaskIdHigh = 0xffff;
+  sFilterConfig.FilterMaskIdLow = 0xffff;
   sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
   sFilterConfig.FilterActivation = ENABLE;
   sFilterConfig.SlaveStartFilterBank = 14;
@@ -211,6 +211,10 @@ while (1)
 	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
 	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
 
+//	  char ms[50];
+//	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
+//	  sprintf(ms, "CNT: %lu\r\n", cnt);
+//	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
 	  transmitDistance();
 
 	  if (knopIngedrukt)
@@ -228,7 +232,7 @@ while (1)
 	  	  knopIngedrukt = 0;
 	  	}
 
-	  //HAL_Delay(50); //Nog nagaan of dit voor problemen zorgt? Originally 500.
+	  HAL_Delay(50); //Nog nagaan of dit voor problemen zorgt? Originally 500.
   }
   /* USER CODE END 3 */
 }
@@ -454,10 +458,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Ultrasoon_Output_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA4 */
+  /*Configure GPIO pin : PA4 */ //Knop pin.
   GPIO_InitStruct.Pin = GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA8 */
@@ -474,6 +478,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD3_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* PA1 = TIM2_CH1 (Echo) */

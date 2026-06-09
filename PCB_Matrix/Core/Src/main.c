@@ -50,7 +50,7 @@
 #define MATRIX_LED_ON	0x50
 #define MATRIX_LED_OFF	0x51
 
-#define CAN_ID_BRAND_ALARM 0x120
+#define CAN_ID_BRAND_ALARM 0x10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -68,13 +68,12 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader;
 CAN_RxHeaderTypeDef RxHeader;
-uint8_t             TxData[8];
-uint8_t             RxData[8];
-uint32_t            TxMailbox;
+uint8_t TxData[8];
+uint8_t RxData[8];
+uint32_t TxMailbox;
 
 volatile uint8_t last_source = 0;
 volatile uint8_t brandActief = 0;
-
 
 //Keypad global variables
 
@@ -186,16 +185,16 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
+    while (1)
+    {
+     /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-	if (brandActief)
-		HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2); //Zet dan de buzzer aan.
-	else
-		HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_2); //Als er geen brand actief is, staat de buzzer uit.
-  }
+     /* USER CODE BEGIN 3 */
+     if (brandActief)
+    	 HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2); //Zet dan de buzzer aan.
+     else
+    	 HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_2); //Als er geen brand actief is, staat de buzzer uit.
+    }
   /* USER CODE END 3 */
 }
 
@@ -450,6 +449,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+ * @brief Inkomende CAN berichten verwerken en afhandelen voor het brandalarm, dat prioriteit krijgt, en de LED op de matrix. 
+ * 
+ * @param hcan 
+ */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
 	{
@@ -490,6 +494,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	}
 }
 
+/**
+ * @brief Zet de LED matrix on en verzendt een 8 byte CAN bevestigingsbericht naar de oorspronkelijke verzender.
+ * 
+ */
 void matrixLedOn(){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, 1);
 
@@ -506,6 +514,10 @@ void matrixLedOn(){
 	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 }
 
+/**
+ * @brief De matrix LED weer uitzetten door een nul te schrijven naar de pin die hiervoor is ingesteld.
+ * 
+ */
 void matrixLedOff(){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, 0);
 }

@@ -1,0 +1,87 @@
+#include <ESP8266WiFi.h> //Voor verbinden met wifi netwerken.
+#include <FastLED.h> //Voor led strips.
+//#include <Wire.h> //Voor I2C, maar is denk ik niet nodig voor deze user story.
+
+// Defines voor de led strip.
+#define LED_PIN     D4
+#define NUM_LEDS    10
+CRGB leds[NUM_LEDS];
+
+// Wifi die op de Pi gebruikt gaat worden om mee te verbinden.
+const char* ssid = "NSELab";
+const char* password = "NSELabWiFi"; // Is als het goed is up to date.
+WiFiServer server(8080); //Fungeert als TCP server (als dat gebruikt wordt) en moet op dezelfde poort zitten als de Pi, dus even checken.
+
+#define NODE_LAMP 0x240 //Met de huidige CAN layout.
+
+void setup() 
+{
+  Serial.begin(115200); //Baudrate.
+
+  //Initialseren van de led.
+  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.clear();
+  FastLED.show();
+
+  // Initialiseren van wifi.
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) 
+    delay(500);
+
+  server.begin(); //Beginnen van de TCP server.
+  
+  // Hieronder moet waarschijnlijk nog iets van client.available, client.connect en/of server.begin logica komen.
+
+  setLight(255, 150, 0, 50); //Hardcoded test zonder invloed van Wifi/Pi.                              
+  Serial.println(WiFi.localIP()); //Hardcoded test dat de Wemos bereikbaar is en in hetzelfde netwerk zit als de Pi.
+}
+
+void loop() 
+{
+  WiFiClient client = server.available();  //Check of de wemos met de Pi verbindt.
+
+  if (client) //Als dat het geval is:
+  {
+    Serial.println("Client verbonden");
+
+    while (client.connected())
+    {
+      if (client.available()) //Zolang de client beschikbaar is:
+      {
+        String commando = client.readStringUntil('\n'); //Lees 1 door de Pi gestuurde commando uit, in dit geval een setLight wijziging.
+        Serial.println(commando); //Print deze
+      
+        int r, g, b, brightness;
+        sscanf(commando.c_str(), "%d,%d,%d,%d", &r, &g, &b, &brightness); //Parsen/extracten van de data in de juiste variable.
+        onMessageReceived(r, g, b, brightness, client); //Het bericht is nu volledig ontvangen, nu uitvoeren o.b.v. het ontvangen.
+
+        break; //Anders blijf je verbonden terwijl er geen geen nieuwe data meer binnenkomt(?)
+      }
+    }
+    client.stop(); //Als het bericht ontvangen is kunnen we stoppen.
+    Serial.println("Client connectie verbroken");
+  }
+}
+
+void setLight(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness)
+{
+  r = (r * brightness) / 100; //Pas de helderheid met kleur toe op schaal.
+  g = (g * brightness) / 100;
+  b = (b * brightness) / 100;
+
+  for (int i = 0; i < NUM_LEDS; i++) //Voor de hoeveelheid ledjes op de strip de kleur en helderheid daarvoor aanpassen.
+    leds[i] = CRGB(r, g, b);
+    
+  FastLED.show(); //Maak de verandering zichtbaar.
+}
+
+void sendAck(WiFiClient& client) 
+{
+  client.println("OK");
+}
+
+void onMessageReceived(int r, int g, int b, int brightness, WiFiClient& client) 
+{
+  setLight(r, g, b, brightness);
+  sendAck(client);
+}

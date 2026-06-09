@@ -1,0 +1,105 @@
+!SESSION 2026-03-20 10:42:31.959 -----------------------------------------------
+eclipse.buildId=Version 2.0.0
+java.version=21.0.8
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=nl_NL
+Framework arguments:  C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\.project
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\.project
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2026-03-20 10:44:23.797
+!MESSAGE Log4j2 initialized with config file C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2026-03-20 10:44:30.317
+!MESSAGE Started RMI Server, listening on port 41337
+!SESSION 2026-03-23 11:20:17.373 -----------------------------------------------
+eclipse.buildId=Version 2.0.0
+java.version=21.0.8
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=nl_NL
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2026-03-23 11:20:37.073
+!MESSAGE Log4j2 initialized with config file C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2026-03-23 11:20:42.640
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.equinox.p2.updatechecker 4 0 2026-03-23 11:21:03.714
+!MESSAGE Exception in update check thread
+!STACK 0
+java.lang.NullPointerException: Cannot invoke "org.eclipse.equinox.internal.p2.ui.sdk.scheduler.AutomaticUpdatePlugin.getAgentLocation()" because the return value of "org.eclipse.equinox.internal.p2.ui.sdk.scheduler.AutomaticUpdatePlugin.getDefault()" is null
+	at org.eclipse.equinox.internal.p2.ui.sdk.scheduler.AutomaticUpdater.checkingForUpdates(AutomaticUpdater.java:106)
+	at org.eclipse.equinox.internal.p2.ui.sdk.scheduler.AutomaticUpdateScheduler$2.checkingForUpdates(AutomaticUpdateScheduler.java:160)
+	at org.eclipse.equinox.internal.p2.updatechecker.UpdateChecker$UpdateCheckThread.run(UpdateChecker.java:81)
+!SESSION 2026-03-24 10:16:02.121 -----------------------------------------------
+eclipse.buildId=Version 2.0.0
+java.version=21.0.8
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=nl_NL
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2026-03-24 10:16:47.001
+!MESSAGE Log4j2 initialized with config file C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2026-03-24 10:16:54.710
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:17:22.647
+!MESSAGE Executed PowerShell command powershell.exe -Command "Get-CimInstance -ClassName Win32_SerialPort | Select-Object -ExpandProperty DeviceID":
+COM10
+COM13
+COM11
+COM15
+COM12
+
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:17:22.649
+!MESSAGE port: COM10
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:17:22.649
+!MESSAGE port: COM13
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:17:22.650
+!MESSAGE port: COM11
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:17:22.652
+!MESSAGE port: COM15
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:17:22.653
+!MESSAGE port: COM12
+!SESSION 2026-03-24 10:18:32.199 -----------------------------------------------
+eclipse.buildId=Version 2.0.0
+java.version=21.0.8
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=nl_NL
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2026-03-24 10:18:55.298
+!MESSAGE Log4j2 initialized with config file C:\Users\alebr\Documents\School\Jaar 2\Semester 4\PES project\Code\Grote_Box\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2026-03-24 10:19:01.437
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:19:28.317
+!MESSAGE Executed PowerShell command powershell.exe -Command "Get-CimInstance -ClassName Win32_SerialPort | Select-Object -ExpandProperty DeviceID":
+COM10
+COM13
+COM11
+COM15
+COM12
+
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:19:28.318
+!MESSAGE port: COM10
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:19:28.319
+!MESSAGE port: COM13
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:19:28.321
+!MESSAGE port: COM11
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:19:28.322
+!MESSAGE port: COM15
+
+!ENTRY com.st.stm32cube.ide.mpu.remote.serial 1 1 2026-03-24 10:19:28.324
+!MESSAGE port: COM12

@@ -44,6 +44,7 @@ private:
     void setupTCP();
     void setCanStatus(bool connected);
     void setTcpStatus(bool connected);
+    void changeColorMOI(int moisture);
 };
 
 #endif // MAINWINDOW_H

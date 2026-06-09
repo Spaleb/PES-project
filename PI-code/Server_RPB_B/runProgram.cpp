@@ -12,6 +12,7 @@
 #include <chrono>
 #include <map>
 
+// Linked de RFID waarden aan een naam.
 std::map<std::string, std::string> rfidNames = {
     {"D935D814", "Beheerder"},
     {"67B37A05", "Bezoeker"},
@@ -25,31 +26,54 @@ TCPServer serverOut;  // 8081 = Qt/nc
 
 std::map<std::string, bool> rfidPresent; // true = aanwezig, false = weg
 
+// CAN waarden (hex) vertaald, een switch-statement werkt niet op een string.
 enum CAN_ID
 {
-    DEUR = 0x230
+    DEUR = 0x230,
+    AFSTAND = 0x102,
+    BRAND_ALARM = 0x10
 };
 
+runProgram::runProgram() : can("can0"){}
+
+/**
+ * @brief Verwijderd witregels aan het begin van een regel die kunnen ontstaan doordat er meerdere berichten
+ tegelijk over de TCP-verbinding worden verstuurd.
+ * 
+ * @param value 
+ * @return std::string 
+ */
 static std::string trim(const std::string& value) {
-    const char* whitespace = " \t\n\r";
-    size_t start = value.find_first_not_of(whitespace);
+    const char* whitespace = " \t\n\r"; // Definitie van een witregel.
+    size_t start = value.find_first_not_of(whitespace); // zoekt eerste letter
     if (start == std::string::npos) return "";
-    size_t end = value.find_last_not_of(whitespace);
-    return value.substr(start, end - start + 1);
+    size_t end = value.find_last_not_of(whitespace); // zoekt laatste letter
+    return value.substr(start, end - start + 1); // returned de bewerkte string
 }
 
+/**
+ * @brief Splitst een inkomend bericht op in een Key en Value waarde zodat deze later verwerkt
+ kunnen worden. 
+ * 
+ * @param input Het bericht dat binnengekregen is via TCP.  
+ * @param key Wordt gevuld met de Key uit het bericht.
+ * @param value Wordt gevuld met de Value uit het bericht.
+ */
 static void parseKeyValue(const std::string& input, std::string& key, std::string& value) {
-    std::string buffer = trim(input);
+    std::string buffer = trim(input); // Gebruikt de trim functie.
 
+    // Verwijderd eventuele "".
     if (!buffer.empty() && buffer.front() == '{' && buffer.back() == '}') {
         buffer = trim(buffer.substr(1, buffer.size() - 2));
     }
 
+    // zoekt de : in het bericht
     size_t colon = buffer.find(':');
     if (colon == std::string::npos) {
         colon = buffer.find('=');
     }
 
+    // Splitst het bericht op de plek van het : teken op in een key en value.
     if (colon != std::string::npos) {
         key = trim(buffer.substr(0, colon));
         value = trim(buffer.substr(colon + 1));
@@ -63,9 +87,11 @@ static void parseKeyValue(const std::string& input, std::string& key, std::strin
     }
 }
 
-runProgram::runProgram() : can("can0"){}
-runProgram::~runProgram() {}
-
+/**
+ * @brief De Main loop van het programma. Hierin worden als het ware alle nodige functies aangeroepen
+ voor het ontvangen en versturen van een bericht.
+ * 
+ */
 void runProgram::run(){ 
     serverIn.start(8080);
     serverOut.start(8081);
@@ -82,27 +108,28 @@ void runProgram::run(){
 
         fd_set readfds;
         FD_ZERO(&readfds);
-
+        
+        // Er zijn drie FD's via waar informatie binnen kan komen.
+        // 1. Qt-Creator    2. PI A     3. CAN-Bus
         FD_SET(serverIn.getServerFd(), &readfds);
         FD_SET(serverOut.getServerFd(), &readfds);
-        FD_SET(can.getFd(), &readfds);  // ← toevoegen
+        FD_SET(can.getFd(), &readfds);  
 
-        if (clientA != -1)
+        if (clientA != -1){
             FD_SET(clientA, &readfds);
-
-        if (clientB != -1)  
+        }
+            
+        if (clientB != -1) {
             FD_SET(clientB, &readfds);
-
-        int maxfd = std::max({serverIn.getServerFd(), 
-                              serverOut.getServerFd(), 
-                              clientA,
-                              clientB,
-                              can.getFd()}); 
+        } 
+            
+        int maxfd = std::max({serverIn.getServerFd(), serverOut.getServerFd(), clientA, clientB, can.getFd()}); 
 
         struct timeval timeout;
         timeout.tv_sec = 0;
         timeout.tv_usec = 10000; // 10 ms                      
 
+        // Wacht tot er data binnenkomt op een van de FD's of tot de timeout voorbij is.
         if (select(maxfd + 1, &readfds, nullptr, nullptr, &timeout) < 0) {
             perror("select");
             continue;
@@ -120,7 +147,7 @@ void runProgram::run(){
             std::cout << "Qt/nc connected\n";
         }
 
-        // Data van Pi A wordt doorgestuurd.
+        // Data van Pi A afhandelen en doorsturen naar QT.
         if (clientA != -1 && FD_ISSET(clientA, &readfds)) {
 
             int len = recv(clientA, buffer, sizeof(buffer), 0);
@@ -159,11 +186,11 @@ void runProgram::run(){
         } else {
             std::string incoming(buffer, len);
             std::cout << "Van Qt: " << incoming << std::endl;
-            handleTcpMessage(incoming);   // ← verwerk het commando
+            handleTcpMessage(incoming);
         }
 }
 
-        // CAN gaat nu ook naar QT.
+        // CAN-berichten uitlezen, verwerken en doorsturen naar QT.
         if (FD_ISSET(can.getFd(), &readfds)) {
             struct can_frame frame;
 
@@ -178,10 +205,18 @@ void runProgram::run(){
     }
 }
 
+/**
+ * @brief Deze functie verwerkt de binnenkomende CAN-berichten. Op basis van het CAN-ID worden de juiste acties ondernomen.
+     - AFSTAND: De afstandswaarde wordt uit het CAN-bericht gehaald en opgeslagen in de variabele readDistance. Ook wordt deze waarde geprint.
+     - BRAND_ALARM: De brandstatus wordt uit het CAN-bericht gehaald. 
+       Afhankelijk van de status (actief of inactief) worden verschillende TCP-berichten verstuurd om de LED, ventilatie en matrix aan te passen.    
+ * 
+ * @param frame Het binnenkomende CAN-bericht dat verwerkt moet worden.
+ */
 void runProgram::canMessageHandler(const struct can_frame& frame){
     switch (frame.can_id & CAN_SFF_MASK) {
 
-        case 0x102: {
+        case AFSTAND: {
             uint16_t distance =
                 (frame.data[0] << 8) | frame.data[1];
 
@@ -189,24 +224,22 @@ void runProgram::canMessageHandler(const struct can_frame& frame){
             readDistance = distance;
             break;
         }
-		case 0x10: //Bericht van CAN_ID_BRAND_ALARM
+		case BRAND_ALARM:
 		{
 			uint8_t brandStatus = (frame.data[0]); // De data uit RxData[0] is de brandstatus.
-			//std::cout << "Brandstatus wordt nu: " << brandStatus << ", 1 = Actief, 0 = Inactief.\n";
 			
 			if(brandStatus == 0x01) //Bij brandstatus 1 moet de lamp op wit aan gaan en de ventilatie afgesloten worden.
 			{
-				handleTcpMessage("LED:BRANDON"); //Allegedly de juiste manier om naar de correcte case te herleiden.
+				handleTcpMessage("LED:BRANDON");
 				handleTcpMessage("VENT:OFF");
-                handleTcpMessage("MATRIX:BRANDON"); //Bericht voor Matrixdisplay dat er brand is.
+                handleTcpMessage("MATRIX:BRANDON");
                 //std::cout << "LED turned ON2\n";
 			}
 			else if(brandStatus == 0x00) //Bij brandstatus 0 moet de lamp weer uit gaan en de ventilatie weer opengaan.
 			{
 				handleTcpMessage("LED:BRANDOFF");
-				handleTcpMessage("VENT:ON"); //Nog niet duidelijk of het een standaard stand wordt of de vorige stand.
+				handleTcpMessage("VENT:ON");
                 handleTcpMessage("MATRIX:BRANDOFF");
-                // std::cout << "LED turned OFF2\n";
 			}
 			break;
 		}
@@ -217,6 +250,11 @@ void runProgram::canMessageHandler(const struct can_frame& frame){
     }
 }
 
+/**
+ * @brief Deze functie bepaalt het type van een binnenkomend TCP-bericht op basis van de key.
+ * @param key De key van het binnenkomende TCP-bericht.
+ * @return Het type van het TCP-bericht.
+ */
 MessageType runProgram::getMessageType(const std::string& key)
 {
     if (key == "BED"){
@@ -225,7 +263,7 @@ MessageType runProgram::getMessageType(const std::string& key)
     if (key == "ID"){
         return MessageType::ID;
     }
-	if (key == "LED") //Als de key overeenkomt met de led wordt de waarde achter de : als value gezet.
+	if (key == "LED")
 		return MessageType::LED;
 	if (key == "VENT")
 		return MessageType::VENT;
@@ -234,6 +272,11 @@ MessageType runProgram::getMessageType(const std::string& key)
     return MessageType::UNKNOWN;
 }
 
+/**
+ * @brief Deze functie verwerkt de binnenkomende TCP-berichten, daarnaast worden
+   er commando's uitgevoerd op basis van het type van het bericht en de waarde.
+ * @param msg Het binnenkomende TCP-bericht dat verwerkt moet worden.
+ */
 void runProgram::handleTcpMessage(const std::string& msg) {
     std::string key;
     std::string value;
@@ -245,53 +288,58 @@ void runProgram::handleTcpMessage(const std::string& msg) {
     }
 
     switch (getMessageType(key))
-	{
+	{  
+        // BED-status verwerken, afhankelijk van de waarde (ON/OFF) wordt er een bericht geprint.
         case MessageType::BED:
             if (value == "ON")
 			{
                 std::cout << "BED turned ON\n";
-                bedPressure = true;
             }else 
 			{
                 std::cout << "BED turned OFF\n";
-                bedPressure = false;
             }
 			break;
-
+        
+        // ID-berichten verwerken, afhankelijk van de waarde (RFID) worden er verschillende acties ondernomen.
         case MessageType::ID:
-        { // Haakjes vereist omdat er variabelen aangemaakt worden.
-            bool isNowPresent = !rfidPresent[value]; // toggle
+        { 
+            bool isNowPresent = !rfidPresent[value]; // toggle of er iemand wel of niet aanwezig is
             rfidPresent[value] = isNowPresent;
 
             std::string name   = rfidNames.count(value) ? rfidNames[value] : "Onbekend (" + value + ")";
             std::string status = isNowPresent ? "aanwezig" : "vertrokken";
 
-            if (value == "D935D814")
-            { // Beheerder
+            if (value == "D935D814") // Beheerder
+            { 
                 if (isNowPresent)
                 {
-                    can.sendCAN(DEUR, {0x01});
-                    // DASHBOARD AAN/OPEN
+                    can.sendCAN(DEUR, {0x01, 0x01});
                 }
-            }
-            else if (value == "67B37A05")
-            { // Bezoeker
+            }else if (value == "72E07B05") // Client B
+            {
+				if (isNowPresent){
+					can.sendCAN(DEUR, {0x01, 0x02});
+				}
+			}
+            else if (value == "67B37A05") // Bezoeker
+            { 
                 if (isNowPresent)
                 {
                 }
             }
-            else if (value == "B155721D")
+            else if (value == "B155721D") // Arts/verzorger
             {
                 serverIn.sendClient("B:" + name + " " + status);
             }
-            else if (value == "F4889C04")
+            else if (value == "F4889C04") // Arts/verzorger
             {
                 serverIn.sendClient("B:" + name + " " + status);
             }
-            else if (value == "5CCC2502")
+            else if (value == "5CCC2502") // Client A
             {
                 if (isNowPresent)
                 {
+                    can.sendCAN(DEUR, {0x01, 0x01});
                     handleTcpMessage("MATRIX:ON");
                     handleTcpMessage("LED:ON");
                 }
@@ -305,7 +353,7 @@ void runProgram::handleTcpMessage(const std::string& msg) {
             break;
         } // sluit case MessageType::ID scope
 
-
+        // LED-berichten verwerken, afhankelijk van de waarde worden er verschillende commando's naar Pi A gestuurd.
         case MessageType::LED:
             if (value == "BRANDON")
             {
@@ -325,7 +373,7 @@ void runProgram::handleTcpMessage(const std::string& msg) {
             } 
             break;
 
-
+        // VENT-berichten verwerken, afhankelijk van de waarde worden er verschillende commando's naar Pi A gestuurd.
         case MessageType::VENT:
             if (value == "ON")
             {
@@ -337,7 +385,7 @@ void runProgram::handleTcpMessage(const std::string& msg) {
             }
             break;
 
-
+        // MATRIX-berichten verwerken, afhankelijk van de waarde worden er verschillende commando's naar Pi A gestuurd.
         case MessageType::MATRIX:
             if (value == "BRANDON")
             {
@@ -366,3 +414,9 @@ void runProgram::handleTcpMessage(const std::string& msg) {
 
     } 
 } 
+
+/**
+ * @brief Verwijderd het runProgram::runProgram object
+ * 
+ */
+runProgram::~runProgram() {}

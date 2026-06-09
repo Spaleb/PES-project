@@ -3,6 +3,10 @@
 
 #include <string>
 
+/**
+ * @brief Header van TCPServer.cpp.
+ * 
+ */
 class TCPServer{
 public:
     TCPServer();

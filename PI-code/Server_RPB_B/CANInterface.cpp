@@ -7,11 +7,15 @@
 #include <cstring>
 #include <cstdint>
 
-// CANInterface constructor, needs the name of the interface (can0)
+/**
+ * @brief Construeert een nieuw CANInterface::CANInterface object.
+ * 
+ * @param name is de naam van het CAN-interface (can0)
+ */
 CANInterface::CANInterface(const std::string& name) : interfaceName(name), sockfd(-1)
 {}
 
-// Opening the CAN interface
+// Openen van het CAN-interface.
 bool CANInterface::open(){
     sockfd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (sockfd < 0) return false;
@@ -36,14 +40,33 @@ bool CANInterface::open(){
     return true;
 }
 
+/**
+ * @brief returnd de sockfd van de CAN socket
+ * 
+ * @return int return int sockfd, is een referentie naar de file descriptor code (in dit geval CAN).
+ */
 int CANInterface::getFd() const{
     return sockfd;
 }
 
+/**
+ * @brief Leest een CAN-frame uit en returned daarna of het succesvol uitgelezen is. 
+ * 
+ * @param frame Referenctie naar CAN-struct (layout van een CAN-frame).
+ * @return true Als er een frame is gelezen.
+ * @return false Als het niet gelukt is of er niks gelezen is.
+ */
 bool CANInterface::readFrame(struct can_frame& frame){
     return read(sockfd, &frame, sizeof(frame)) > 0;
 }
 
+/**
+ * @brief Verantwoordelijk voor het versturen van een CAN-bericht naar de STM32 microcontrollers.
+ *
+ * @param id Het ID waarmee het CAN-bericht wordt worden verstuurd. Op basis van dit ID
+ Kan een STM32 Microcontroller juist interpreteren wat er moet gebeuren.
+ * @param data De data die verstuurd moet worden in hex, in de vorm van een list. 
+ */
 void CANInterface::sendCAN(uint32_t id, std::initializer_list<uint8_t> data){
     struct can_frame frame;
 
@@ -61,6 +84,10 @@ void CANInterface::sendCAN(uint32_t id, std::initializer_list<uint8_t> data){
     write(sockfd, &frame, sizeof(frame));
 }
 
+/**
+ * @brief Verwijderen van het CANInterface::CANInterface object.
+ * 
+ */
 CANInterface::~CANInterface() {
     if (sockfd >= 0) {
         close(sockfd);

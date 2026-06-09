@@ -9,28 +9,33 @@ static uint8_t lastG = 0;
 static uint8_t lastB = 0;
 static uint8_t lastBrightness = 0;
 
+/**
+ * @brief Initialiseert de FastLED-bibliotheek en configureert de pinnen voor de LED-strip.
+ * 
+ */
 void LedStrip::begin() 
 {
-    FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
-    FastLED.clear();
-    FastLED.show();
+    FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);//Registreer de WS2812 LED strip met de juiste pin en kleurvolgorde in FastLED.
+    FastLED.clear(); // Wis eventueel achtergebleven kleurdata in het buffer, welke alle LEDs op zwart/uit zegt.
+    FastLED.show(); //Toon de momenteel lege data op de led strip.
 }
 
+/**
+ * @brief Verwerkt inkomende tekstcommando's van de server om de kleur en status van de LED strip aan te passen, met prioriteitsbeheer voor het brandalarm.
+ * 
+ * @param command Het ontvangen tekstcommando (bijv "red").
+ * @param client Referentie naar de actieve WiFiClient instantie voor eventuele netwerkrespons.
+ */
 void LedStrip::handleCommand(String command, WiFiClient &client) 
 {
- // Serial.println("Received LED command: " + command);
-
   if (brandAlarm && command != "LEDBRANDOFF")
-  {
-    //Serial.println("Brandalarm actief, lichtstatus mag niet veranderen!"); 
-    return; //Er mag niks gebeuren met de ledstrip zolang het brandalarm actief is en deze niet opgegeven wordt.
-  }
+    return; //Er mag niks gebeuren met de ledstrip zolang het brandalarm actief is en deze niet opgegeven wordt met het ontvangen commando.
   else if (command == "red")
     setLight(255, 0, 0, 50); //Angstverlichtend, beter slapen.
   else if (command == "green")
     setLight(0, 255, 0, 50); //Stressverlagend.
   else if (command == "blue")
-    setLight(0, 0, 255, 50); //Blauw licht voor alertheid en betere stemming overdag.
+    setLight(0, 0, 255, 50); //Alertheid en betere stemming overdag.
   else if (command == "LEDon")
     setLight(255, 255, 255, 75); //Wit licht als aangegeven wordt dat de lampen aan moeten.
   else if (command == "LEDoff")
@@ -54,14 +59,22 @@ void LedStrip::handleCommand(String command, WiFiClient &client)
   }   
 }
 
+/**
+ * @brief Stelt de kleur en helderheid van de gehele LED-strip in door de RGB-waarden te schalen en de strip bij te werken.
+ * 
+ * @param r De rode kleurcomponent (0-255).
+ * @param g De groene kleurcomponent (0-255).
+ * @param b De blauwe kleurcomponent (0-255).
+ * @param brightness Het helderheidspercentage (0-100%).
+ */
 void LedStrip::setLight(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) 
 {
-    r = (r * brightness) / 100;
+    r = (r * brightness) / 100; //Pas de helderheid met kleur toe op schaal.
     g = (g * brightness) / 100;
     b = (b * brightness) / 100;
 
-    for (int i = 0; i < NUM_LEDS; i++) 
+    for (int i = 0; i < NUM_LEDS; i++)//Voor de hoeveelheid leds op de strip de kleur en geschaalde helderheid daarvoor aanpassen.
         leds[i] = CRGB(r, g, b);
     
-    FastLED.show();
+    FastLED.show(); //Maak de verandering zichtbaar op de led strip.
 }

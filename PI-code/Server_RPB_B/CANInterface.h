@@ -1,4 +1,4 @@
-    #ifndef CANINTERFACE_H
+#ifndef CANINTERFACE_H
 #define CANINTERFACE_H
 
 #include <string>
@@ -6,6 +6,10 @@
 #include <initializer_list>
 #include <cstdint>
 
+/**
+ * @brief Header file voor CANInterface.cpp.
+ * 
+ */
 class CANInterface{
 public:
     CANInterface(const std::string& name);

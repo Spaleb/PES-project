@@ -135,11 +135,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if (doorOpen == 1){
-	  		char boot_msg[] = "Trigger\r\n";
+	  if (doorOpen == 1)
+      {
+	  		char boot_msg[] = "Trigger\r\n"; //Debug melding dat deur getriggerd is.
 	  		HAL_UART_Transmit(&huart2, (uint8_t*)boot_msg, strlen(boot_msg), 1000);
-	  		HAL_Delay(3000);
-	  		__HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 1500);
+	  		HAL_Delay(3000); //Interrupt overruled wel deze delay.
+	  		__HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 1500);//Stuur de servo aan op timer 16 met de pulse lengte die de deur opent.
 	  }
 
   }
@@ -385,38 +386,53 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void openDoor(signal){
-		 __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, signal); // Bij brand opent de deur voor 180 graden.
-		 doorOpen = 1;
+/**
+ * @brief Opent de deur door de PWM waarde van Timer 16 in te stellen en zet de statusvariabele voor de deur op open.
+ * 
+ */
+void openDoor(signal)
+{
+	__HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, signal);//De deur opent zich ten grootte van het meegegeven signaal.
+	doorOpen = 1;
 }
 
-void unlockDoor(){
-		 __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 1750); // Bij brand opent de deur voor 180 graden.
-		 doorOpen = 1;
+/**
+ * @brief Ontgrendelt de deur in brand door de PWM comparewaarde minimaal open te sturen en zet de status van de deur op open.
+ * 
+ */
+void unlockDoor()
+{
+    __HAL_TIM_SET_COMPARE(&htim16, TIM_CHANNEL_1, 1750);//Bij brand opent de deur een tikkie, om te simuleren dat deze van het slot is.
+    doorOpen = 1;
 }
 
+/**
+ * @brief Evalueert binnenkomende CAN berichten op FIFO 0 via een switch-case op ID niveau.
+ *        Hierdoor worden direct noodgevallen (brand) of normale deurbedieningen (servo) aangestuurd.
+ * 
+ * @param hcan Pointer naar de CAN configuratiestructuur van de actieve CAN bus.
+ */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
     {
     	switch (RxHeader.StdId){
     		case CAN_ID_BRAND_ALARM:
-    			if (RxData[0] == 0x01){
-    				brandActief = 1;
-    				unlockDoor(RxData[0]);
-
-    			}else if (RxData[0] == 0x00){
-    				brandActief = 0;
+    			if (RxData[0] == 0x01) //Als de meegegeven waarde 1 is.
+                {
+    				brandActief = 1; //Is er brand actief.
+    				unlockDoor(RxData[0]); //En moet de deur van het slot.
     			}
+                else if (RxData[0] == 0x00)
+    				brandActief = 0; //Bij een doorgestuurde 0 van dit ID is de brandstatus opgeheven.
 
     			break; // Er hoeft niet verder gecheckt te worden bij brand
 
     		case CAN_ID_SERVO_ONDER:
-    			if (RxData[1] == 1){
-    				openDoor(2000);
-    			}else if (RxData[1] == 2){
-    				openDoor(900);
-    			}
+    			if (RxData[1] == 1)
+    				openDoor(2000); //Signal wordt nu 2000.
+    			else if (RxData[1] == 2)
+    				openDoor(900); //Signal wordt nu 900.
 
     			break;
 

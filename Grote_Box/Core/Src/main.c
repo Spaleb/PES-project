@@ -44,9 +44,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
-
 I2C_HandleTypeDef hi2c1;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -55,9 +53,9 @@ uint8_t ledsB = 0x00;   // GPIOB (LED 8 en 9)
 
 CAN_TxHeaderTypeDef TxHeader;
 CAN_RxHeaderTypeDef RxHeader;
-uint8_t             TxData[8];
-uint8_t             RxData[8];
-uint32_t            TxMailbox;
+uint8_t TxData[8];
+uint8_t RxData[8];
+uint32_t TxMailbox;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -151,9 +149,6 @@ int main(void)
   // Setten pullups voor GPIOB
   HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x0D, 1, &pullUps, 1, 100);
 
-
-
-
   // Eerst alle LEDS uitzetten, LAAT DIT STAAN
   HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x12, 1, &ledsA, 1, 100); // GPIOA = 0
   HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x13, 1, &ledsB, 1, 100); // GPIOB = 0
@@ -164,7 +159,6 @@ int main(void)
   // Wake up van de GYRO/IMU
   uint8_t data = 0;
   HAL_I2C_Mem_Write(&hi2c1, GYRO_ADDR, 0x6B, 1, &data, 1, 100);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -284,7 +278,6 @@ static void MX_CAN1_Init(void)
   */
 static void MX_I2C1_Init(void)
 {
-
   /* USER CODE BEGIN I2C1_Init 0 */
 
   /* USER CODE END I2C1_Init 0 */
@@ -322,7 +315,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -405,68 +397,90 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+ * @brief Stuurt een alarm voor een val door een waarschuwing te loggen via UART en een noodbericht te verzenden over de CAN bus.
+ * 
+ */
 void sendFallAlarm(void)
 {
-	char alarm_msg[] = "\r\nVAL GEDETECTEERD!\r\n";
+	char alarm_msg[] = "\r\nVAL GEDETECTEERD!\r\n"; //Debug message.
 	HAL_UART_Transmit(&huart2, (uint8_t*)alarm_msg, strlen(alarm_msg), 1000);
 
+    //CAN header confugureren.
 	TxHeader.StdId = PATIENT_FALLEN;
 	TxHeader.IDE = CAN_ID_STD;
 	TxHeader.RTR = CAN_RTR_DATA;
 	TxHeader.DLC = 1;
 	TxHeader.TransmitGlobalTime = DISABLE;
 
-	TxData[0] = 0x01;
+	TxData[0] = 0x01; //= val actief.
 
-	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData,  &TxMailbox);
+	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData,  &TxMailbox); //Verzend het bericht op de CAN bus.
 }
 
+/**
+ * @brief Leest de ruwe versnellingsdata uit via I2C.
+ *        Berekent de totale G-krachtvector.
+ *        Triggert een valalarm als er een vrije val wordt gedetecteerd.
+ */
 void readGYRO(){
 	uint8_t gyroRead[6];
 	float Ax, Ay, Az;
 	int16_t X_GYRO, Y_GRYO, Z_GYRO;
 	float Atot;
 
+    // Lees 6 opeenvolgende registers uit via I2C, vanaf het startregister 0x3B.
 	HAL_I2C_Mem_Read(&hi2c1, GYRO_ADDR, 0x3B, 1, gyroRead, 6, 100);
 
+    // Combineer de MSB en LSB bytes tot 16-bit getekende integers, signed int16_t, voor elke as.
 	X_GYRO = (int16_t)(gyroRead[0] << 8 | gyroRead[1]);
 	Y_GRYO = (int16_t)(gyroRead[2] << 8 | gyroRead[3]);
     Z_GYRO = (int16_t)(gyroRead[4] << 8 | gyroRead[5]);
 
+    // Converteer de ruwe sensorwaarden naar G-kracht, uitgaande van een schaalinstelling waarbij 1g = 16384 LSB.
     Ax = X_GYRO / 16384.0;
 	Ay = Y_GRYO / 16384.0;
 	Az = Z_GYRO / 16384.0;
 
+    // Berekent de totale resulterende versnellingsvector met de stelling van Pythagoras in 3D.
 	Atot = sqrtf((Ax * Ax) + (Ay * Ay) + (Az * Az));
-	if (Atot < 0.80){
-		sendFallAlarm();
-	}
+	if (Atot < 0.80)
+		sendFallAlarm(); // Als de waarde onder de 0.80g zakt, bevindt de sensor zich in een vrije val en wordt dit verzonden.
 }
 
+/**
+ * @brief Schakelt een specifieke LED op de bar aan/uit door de bitstatus in de registers van de I/O expander aan te passen via I2C.
+ * 
+ * @param index De index van de target LED (0 t/m 7 voor Port A, 8 en 9 voor Port B).
+ * @param on De gewenste status van de LED (1 voor inschakelen, 0 voor uitschakelen).
+ */
 void setLedBar(uint8_t index, uint8_t on){
 	if (index < 8){
 		if (on){
-			ledsA |= (1 << index);
+			ledsA |= (1 << index); // Zet de specifieke bit op 1 om de LED in te schakelen. Invoeren 1 dan wordt het sws 1.
 		}else{
-			ledsA &= ~(1 << index);
+			ledsA &= ~(1 << index); // Zet de specifieke bit op 0 om de LED uit te schakelen. Invoeren 0 dan wordt het sws 0.
 		}
-		HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x12, 1, &ledsA, 1, 100);
+		HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x12, 1, &ledsA, 1, 100); // Schrijf het bijgewerkte bitmasker naar Port A (0x12) via I2C.
 	}else if (index < 10){
-		uint8_t bit = index - 8;
+		uint8_t bit = index - 8; // Vertaal de globale index naar een bit-positie (0 of 1) binnen Port B.
 		if (on){
-			ledsB |= (1 << bit);
+			ledsB |= (1 << bit); // Zet de specifieke bit op 1 om de LED in te schakelen.
 		}else{
-			ledsB &= ~(1 << bit);
+			ledsB &= ~(1 << bit); // Zet de specifieke bit op 0 om de LED uit te schakelen
 		}
-		HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x13, 1, &ledsB, 1, 100);
+		HAL_I2C_Mem_Write(&hi2c1, 0x21 << 1, 0x13, 1, &ledsB, 1, 100); //Schrijf het bijgewerkte bitmasker naar Port B (0x13) via I2C.
 	}
-
 }
 
-// This function runs automatically whenever a CAN message arrives
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
-
+/**
+ * @brief Callback functie die automatisch wordt geactiveerd zodra er een nieuw CAN bericht in Rx FIFO 0 is binnengekomen en dit bericht uitleest.
+ * 
+ * @param hcan Pointer naar de CAN configuratiestructuur van de actieve CAN bus.
+ */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) { 
+	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {//Haal het inkomende CAN bericht op uit FIFO 0 en sla de header en data op in de globale variabelen RxHeader en RxData.
+        //Heeft geen informatie nodig en is daardoor leeg gebleven.
 	}
 }
 

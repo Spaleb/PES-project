@@ -194,6 +194,9 @@ void MainWindow::readTcpData()
         }else if (line.startsWith("MOI")){
             QString moisture = line.section(':', 1).trimmed();
             ui->PlantValue->setText(moisture);
+
+            int MoiValue = moisture.toInt();
+            changeColorMOI(MoiValue);
         }
     }
 }
@@ -244,6 +247,27 @@ void MainWindow::on_matrixSend_clicked()
     QString matrixString = ui->matrixInput->text();
     tcpSocket->write("MATRIX:" + matrixString.toUtf8() + "\n");
     tcpSocket->flush();
+}
+
+/**
+ * @brief Veranderd de kleur van het MOI-bolletje in de UI afhankelijk van de waarde van de MOI sensor. Er zijn 4 verschillende kleuren.
+ * 
+ * @param moisture De waarde van de MOI sensor, deze wordt gebruikt om de kleur te bepalen.
+ */
+void MainWindow::changeColorMOI(int moisture){
+    QString color;
+
+    if (moisture >= 70){
+        color = "green";
+    }else if (moisture >= 40){
+        color = "yellow";
+    }else if (moisture >= 20){
+        color = "orange";
+    }else{
+        color = "red";
+    }
+
+    ui->horizontalFrame_9->setStyleSheet("background-color: "+ color +"; border 2px solid #D0D0D0; border-radius: 12px; padding: 8px;");
 }
 
 /**

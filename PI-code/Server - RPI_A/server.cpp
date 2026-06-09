@@ -17,9 +17,10 @@ using std::vector;
 
 #define WEMOS_PORT 5000
 #define PI_PORT 8080
-#define PI_IP "192.168.137.104"
+#define PI_IP "10.42.0.1"
 #define BUFFER_SIZE 1024
 
+// Clientstructuur om verbonden Wemos-apparaten bij te houden
 struct Client {
     int socket;
     char id;
@@ -34,6 +35,11 @@ sockaddr_in serv_addr = {};
 void processMessage(const std::string& msg);
 void sendToPi(const std::string& msg);
 
+/**
+ * @brief Functie die wordt aangeroepen wanneer een Wemos-apparaat verbinding maakt en berichten verzendt.
+ * 
+ * @param client_fd Socketbestanddescriptor van de verbonden Wemos-client.
+ */
 void receivedWemos(int client_fd) {
     char buffer[BUFFER_SIZE];
 
@@ -53,6 +59,7 @@ void receivedWemos(int client_fd) {
 
         bool found = false;
 
+        // Controleer of de Wemos al eerder verbonden was en update de socket indien nodig
         for (auto& c : clients) {
             if (c.id == id) {
                 close(c.socket);
@@ -69,6 +76,7 @@ void receivedWemos(int client_fd) {
         printf("Client %c %s\n", id, found ? "reconnected" : "connected");
     }
 
+    // Blijf berichten ontvangen van de Wemos totdat deze wordt verbroken
     while (true) {
         n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
 
@@ -81,6 +89,7 @@ void receivedWemos(int client_fd) {
 
         bool onlyWhitespace = true;
 
+        // Controleer of het ontvangen bericht alleen uit witruimtes bestaat
         for (int i = 0; i < n; i++) {
             if (!isspace((unsigned char)buffer[i])) {
                 onlyWhitespace = false;
@@ -88,6 +97,7 @@ void receivedWemos(int client_fd) {
             }
         }
 
+        // Als het bericht niet alleen uit witruimtes bestaat, log het en stuur het door naar de Pi
         if (!onlyWhitespace) {
             printf("Received from %c: %s\n", id, buffer);
 
@@ -101,6 +111,7 @@ void receivedWemos(int client_fd) {
     {
         lock_guard<mutex> lock(clientsMutex);
 
+        // Verwijder de client uit de lijst van verbonden clients wanneer deze wordt verbroken
         for (auto it = clients.begin(); it != clients.end(); ++it) {
             if (it->id == id) {
                 clients.erase(it);
@@ -110,6 +121,11 @@ void receivedWemos(int client_fd) {
     }
 }
 
+/**
+ * @brief Functie die een ontvangen bericht verwerkt en naar de juiste Wemos stuurt.
+ * 
+ * @param msg Het ontvangen bericht.
+ */
 void processMessage(const std::string& msg) {
     if (msg.empty()) {
         return;
@@ -119,6 +135,7 @@ void processMessage(const std::string& msg) {
 
     size_t payloadStart = 1;
 
+    // Controleer of er een scheidingsteken (spatie of dubbele punt) is.
     if (msg.size() > 1 && (msg[1] == ' ' || msg[1] == ':')) {
         payloadStart = 2;
     }
@@ -129,12 +146,14 @@ void processMessage(const std::string& msg) {
         return;
     }
 
+    // Zorg ervoor dat het bericht eindigt met een newline, zodat de Wemos het correct kan verwerken.
     if (bericht.back() != '\n') {
         bericht += '\n';
     }
 
     lock_guard<mutex> lock(clientsMutex);
 
+    // Zoek de juiste Wemos op basis van het target-id en stuur het bericht door
     for (auto& c : clients) {
         if (c.id == target) {
             send(c.socket, bericht.c_str(), bericht.size(), 0);
@@ -145,6 +164,10 @@ void processMessage(const std::string& msg) {
     printf("Wemos target %c not found\n", target);
 }
 
+/**
+ * @brief Functie die berichten ontvangt van de Pi en verwerkt.
+ * 
+ */
 void receiveFromPi() {
     char buffer[BUFFER_SIZE];
 
@@ -171,6 +194,10 @@ void receiveFromPi() {
     }
 }
 
+/**
+ * @brief Functie die de interactie met de Wemos-apparaten beheert.
+ * 
+ */
 void handleWemos() {
     while (true) {
         char target = 0;
@@ -198,6 +225,7 @@ void handleWemos() {
 
         lock_guard<mutex> lock(clientsMutex);
 
+        // Zoek de juiste Wemos op basis van het target-id en stuurt het bericht door
         for (auto& c : clients) {
             if (c.id == target) {
                 send(c.socket, out.c_str(), out.size(), 0);
@@ -207,6 +235,10 @@ void handleWemos() {
     }
 }
 
+/**
+ * @brief Functie die de verbinding met de Pi start.
+ * 
+ */
 void startPi() {
     sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -233,6 +265,10 @@ void startPi() {
     thread(receiveFromPi).detach();
 }
 
+/**
+ * @brief Functie die de Wemos-server start.
+ * 
+ */
 void initWemos() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -263,6 +299,7 @@ void initWemos() {
 
     std::cout << "Wemos server started\n";
 
+    // Accepteer binnenkomende verbindingen van Wemos-apparaten en start een nieuwe thread voor elke verbinding
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
 
@@ -274,6 +311,10 @@ void initWemos() {
     }
 }
 
+/**
+ * @brief Functie die een bericht naar de Pi stuurt.
+ * @param msg Het te sturen bericht.
+ */
 void sendToPi(const std::string& msg) {
     if (sock <= 0) {
         std::cerr << "Pi socket not connected\n";

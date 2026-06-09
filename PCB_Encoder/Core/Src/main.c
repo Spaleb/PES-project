@@ -69,6 +69,11 @@ void sendBrandAlarm(uint8_t);
 /* USER CODE BEGIN 0 */
 
 // BRON -> https://www.youtube.com/watch?v=ti_1ZwRolU4
+/**
+ * @brief Vertraging genereren via de tellerstand van timer 2.
+ * 
+ * @param time De gewenste vertraging.
+ */
 void delay (uint16_t time){
 	__HAL_TIM_SET_COUNTER(&htim2, 0);
 	while (__HAL_TIM_GET_COUNTER (&htim2) < time);
@@ -80,6 +85,11 @@ uint32_t Difference = 0;
 uint8_t Is_First_Captured = 0;
 uint32_t Distance = 0;
 
+/**
+ * @brief Afstand tot een object berekenen met de ultrasone sensor, door via Input Capture op channel 2 de pulsduur van het echosignaal te berekenen.
+ * 
+ * @param htim Hij krijgt de timer mee als pointer.
+ */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)  // if the interrupt source is channel1
@@ -116,7 +126,10 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		}
 	}
 }
-
+/**
+ * @brief Een afstandsmeting voor de ultrasone sensor opstarten via een triggerpulse.
+ * 
+ */
 void HCSR04_Read (void)
 {
 	HAL_GPIO_WritePin(GPIOA, Ultrasoon_Output_Pin, GPIO_PIN_SET);  // pull the TRIG pin HIGH
@@ -201,6 +214,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
 while (1)
   {
     /* USER CODE END WHILE */
@@ -211,11 +225,8 @@ while (1)
 	  sprintf(msg, "Afstand: %d cm\r\n", Distance);
 	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
 
-//	  char ms[50];
-//	  uint32_t cnt = __HAL_TIM_GET_COUNTER(&htim2);
-//	  sprintf(ms, "CNT: %lu\r\n", cnt);
-//	  HAL_UART_Transmit(&huart2, (uint8_t*)ms, strlen(ms), 100);
 	  transmitDistance();
+
 
 	  if (knopIngedrukt)
 	  	{
@@ -223,16 +234,16 @@ while (1)
 		  sendBrandAlarm(brandActief);//Voor het versturen van een CAN bericht bij het indrukken van de knop, die als parameter meegaat.
 		  char buffer[50];
 
-		  if(brandActief)
-			  sprintf(buffer, "Knop ingedrukt, er is brand gemeld. \r\n"); //Testbericht dat het op PuTTY te zien is.
+		  if(brandActief) //Berichten die het visueel maken op bijvoorbeeld PuTTY.
+			  sprintf(buffer, "Knop ingedrukt, er is brand gemeld. \r\n"); 
 		  else
-			  sprintf(buffer, "Knop ingedrukt, brandstatus opgeheven. \r\n"); //Testbericht.
+			  sprintf(buffer, "Knop ingedrukt, brandstatus opgeheven. \r\n");
 
-		  HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100);
-	  	  knopIngedrukt = 0;
+		  HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 100); //Verstuur de nieuwe brandstatus.
+	  	  knopIngedrukt = 0; //Reset de knop input als de informatie verwerkt is.
 	  	}
 
-	  HAL_Delay(50); //Nog nagaan of dit voor problemen zorgt? Originally 500.
+	  HAL_Delay(50); 
   }
   /* USER CODE END 3 */
 }
@@ -484,34 +495,27 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-  /* PA1 = TIM2_CH1 (Echo) */
-//  GPIO_InitStruct.Pin = GPIO_PIN_1;
-//  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-//  GPIO_InitStruct.Pull = GPIO_NOPULL;
-//  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-//  GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
-//  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PB1 */ //Oude knop pin waar we nu vanaf zijn gestapt.
-//    GPIO_InitStruct.Pin = GPIO_PIN_1;
-//    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-//    GPIO_InitStruct.Pull = GPIO_PULLUP;
-//    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-//    HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
-//    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
 
 // This function runs automatically whenever a CAN message arrives
+/**
+ * @brief Callback functie die automatisch wordt geactiveerd bij elk nieuw binnenkomend CAN bericht.
+ * 
+ * @param hcan Pointer naar een CAN_HandleTypeDef structuur, die de informatie van de configuratie van de CAN bus bevat.
+ */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	// Needs a funtion to respond to requests!
+    //Mag leeg blijven, want de encoder hoeft op niks te reageren.
 }
 
+/**
+ * @brief Triggert een ultrasone meting en verzendt de afstand via de CAN bus.
+ *  (ID is van CAN_ID_DISTANCE_SENSOR).
+ *  Wordt alleen verzonden als de waarde meer dan 10 cm is veranderd t.o.v. de vorige meting.
+ */
 void transmitDistance(){
 	static uint16_t lastDistance = 0;
 
@@ -535,9 +539,14 @@ void transmitDistance(){
 	}
 }
 
+/**
+ * @brief O.b.v. debouncing en het indrukken van de brandknop, de knopindruk registreren.
+ * 
+ * @param GPIO_Pin De overeenkomende pin voor de brandknop.
+ */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    //Anti debouncing en interrupt program freeze?
+    //Anti debouncing.
     static uint32_t lastButtonPress = 0;
     uint32_t rightNow = HAL_GetTick(); //GetTick() haalt het aantal milliseconden op since startup of reset.
     uint32_t tijdInterval = 200;
@@ -548,7 +557,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         lastButtonPress = rightNow; //Verzet de aanroep.
     }
 }
-
+/**
+ * @brief Het opmaken en verzenden van het bericht voor het brandalarm.
+ * 
+ * @param brandStatus Of een 0 of een 1, afkomstig van brandActief uit de while loop.
+ */
 void sendBrandAlarm(uint8_t brandStatus)
 {
 	TxHeader.StdId = CAN_ID_BRAND_ALARM; //Het ID van de sensor dat verantwoordelijk wordt voor registeren van brand.
@@ -559,13 +572,6 @@ void sendBrandAlarm(uint8_t brandStatus)
 	TxData[0] = brandStatus;  //Data met waarde voor registratie van brand, adhv of een 0 of 1 als parameter meegegeven is.
 
 	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData,  &TxMailbox); // Versturen van dat er brand geregistreerd is.
-
-//	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-//	{
-//	    char err[] = "CAN TX FAILED\r\n";
-//	    HAL_UART_Transmit(&huart2, (uint8_t*)err, strlen(err), 100);
-//	}
-
 }
 /* USER CODE END 4 */
 

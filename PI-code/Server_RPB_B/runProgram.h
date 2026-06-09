@@ -5,6 +5,7 @@
 #include "TCPServer.h"
 #include "CANInterface.h"
 
+// Definitie van de verschillende soorten berichten die binnen kunnen komen via TCP.
 enum class MessageType {
     BED,
     ID,
@@ -14,6 +15,10 @@ enum class MessageType {
     UNKNOWN
 };
 
+/**
+ * @brief De runProgram klasse is verantwoordelijk voor het verwerken van binnenkomende TCP-berichten en CAN-berichten.
+ * 
+ */
 class runProgram{
 public:
     runProgram();

@@ -6,6 +6,11 @@
 
 extern WiFiClient client;
 
+/**
+ * @brief 
+ * Deze klasse beheert de vochtigheidssensor. Het leest de analoge waarde van de sensor, zet deze om naar een percentage en stuurt een bericht naar de server als er een significante verandering in vochtigheid is gedetecteerd.
+ * 
+ */
 class MoistureSensor {
   private:
     const int sensorPin = A0;
@@ -19,4 +24,4 @@ class MoistureSensor {
     void loop();
 };
 
-#endif // MOISTURESENSOR_H
+#endif

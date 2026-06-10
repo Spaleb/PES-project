@@ -4,6 +4,11 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 
+/**
+ * @brief 
+ * Deze klasse beheert het Matrixdisplay.
+ * 
+ */
 class DisplayMatrix {
 public:
     void init();

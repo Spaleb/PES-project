@@ -4,17 +4,12 @@
 extern WiFiClient client;
 extern char DEVICE_ID;
 
-/**
- * @brief Constructor for RFID handler.
- * Initializes PN532 instance with default I2C pins.
- */
 RFID::RFID() : nfc(-1, -1) {}
 
 /**
- * @brief Initializes the PN532 RFID module and I2C communication.
+ * @brief 
+ * Deze functie initialiseert de RFID-module. Het maakt gebruik van de Wire-library om te communiceren met de PN532-module via I2C.
  * 
- * Sets up Wire (I2C), starts PN532, verifies firmware version,
- * configures Secure Access Module (SAM), and prepares for card reading.
  */
 void RFID::begin() {
   Wire.begin(D2, D1);
@@ -25,7 +20,6 @@ void RFID::begin() {
   uint32_t version = nfc.getFirmwareVersion();
 
   if (!version) {
-    Serial.println("PN532 niet gevonden");
     while (1);
   }
 
@@ -33,17 +27,17 @@ void RFID::begin() {
 }
 
 /**
- * @brief Polls for RFID cards and sends UID when a new card is detected.
+ * @brief 
+ * Deze functie leest de RFID-tags. Het controleert regelmatig of er een nieuwe tag is gescand en stuurt de UID van de tag naar de server als deze is gescand.
+ * Om te voorkomen dat dezelfde tag meerdere keren achter elkaar wordt verzonden, wordt er een cooldown-periode ingesteld waarin dezelfde tag niet opnieuw wordt verzonden. 
  * 
- * Reads passive ISO14443A tags at a fixed interval, converts UID to
- * uppercase hex string, and sends it over Serial and WiFi client if new.
  */
 void RFID::update() {
   static unsigned long lastRead = 0;
   static String lastUID = "";
 
   const unsigned long interval = 150;
-  const unsigned long cooldown = 1000; // 1 second
+  const unsigned long cooldown = 1000;
 
   if (millis() - lastRead < interval) return;
   lastRead = millis();
@@ -58,7 +52,7 @@ void RFID::update() {
     50
   );
 
-  if (!success) {
+  if (!success) { // Geen tag gescand, stop de loop hier
     return;
   }
 
@@ -73,13 +67,12 @@ void RFID::update() {
 
   static unsigned long lastSentTime = 0;
 
-  // prevent spam
-  if (uidStr == lastUID && millis() - lastSentTime < cooldown) {
+  if (uidStr == lastUID && millis() - lastSentTime < cooldown) { // Zelfde tag binnen cooldown-periode, niet verzenden
     return;
   }
 
   lastUID = uidStr;
   lastSentTime = millis();
 
-  client.println("ID:" + uidStr);
+  client.println("ID:" + uidStr); // UID van de gescande tag naar de server sturen
 }

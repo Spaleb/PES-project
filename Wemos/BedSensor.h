@@ -4,9 +4,8 @@
 #include <Arduino.h>
 
 /**
- * @brief This class is responsible for detecting pressure on the bed and
- * sending a message if the status of the recorded environment 
- * (the pressure) has changed.
+ * @brief // Klasse voor het meten van of er druk is op het bed.
+ * Deze klasse maakt gebruik van een analoge sensor die de druk op het bed meet.
  * 
  */
 class BedSensor {

@@ -13,7 +13,6 @@ const char* password = "useruser";
 
 const char* serverIP = "10.42.0.92";
 const int serverPort = 5000;
-
 char DEVICE_ID = 'A'; //A; BED, RFID | B; SHT3X, MATRIX | C; LEDStrip, MOIS
 
 WiFiClient client;
@@ -26,11 +25,12 @@ SHT3xSensor sht3x;
 DisplayMatrix display;
 
 
-
+/**
+ * @brief
+ * Deze functie is de setup-functie;
+ * Het initialiseert de WiFi-verbinding, maakt verbinding met de server en initialiseert de sensoren en apparaten op basis van het DEVICE_ID.
+ */
 void setup() {
-
-  Serial.begin(115200);
-  delay(500);
   WiFi.begin(ssid, password);
 
 
@@ -56,7 +56,13 @@ void setup() {
   
 
 }
-
+/**
+ * @brief 
+ * Deze functie is de loop-functie;
+ * Het controleert of de client nog steeds verbonden is met de server en probeert opnieuw verbinding te maken als dat niet het geval is. 
+ * Vervolgens leest het inkomende berichten van de server, verwerkt deze en stuurt de juiste commando's naar de sensoren en apparaten op basis van het bericht.
+ * 
+ */
 void loop() {
 
   

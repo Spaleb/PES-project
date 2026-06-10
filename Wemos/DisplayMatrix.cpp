@@ -22,11 +22,20 @@ static bool brandAlarmActive = false;
 static bool brandTextShown = false;
 static char currentText[64] = { 0 };
 
+/**
+ * @brief 
+ * Initialiseert het Matrixdisplay.
+ */
 void DisplayMatrix::init() {
   display.begin();
   display.displayClear();
 }
 
+/**
+ * @brief 
+ * Toont de opgegeven tekst op het Matrixdisplay.
+ * @param text De tekst om weer te geven.
+ */
 void DisplayMatrix::show(const char* text) {
 
   if (brandAlarmActive) {
@@ -52,6 +61,11 @@ void DisplayMatrix::show(const char* text) {
   display.displayReset();
 }
 
+/**
+ * @brief 
+ * Deze functie wordt regelmatig aangeroepen in de hoofdloop. Als het display actief is, wordt de animatie van het display bijgewerkt. 
+ * 
+ */
 void DisplayMatrix::update() {
   if (!active) return;
 
@@ -60,12 +74,20 @@ void DisplayMatrix::update() {
   }
 }
 
+/**
+ * @brief 
+ * Deze functie activeert het brandalarm op het Matrixdisplay.
+ */
 void DisplayMatrix::brandOn() {
   brandAlarmActive = true;
   brandTextShown = false;
   active = true;
 }
 
+/**
+ * @brief 
+ * Deze functie cleart het brandalarm op het Matrixdisplay.
+ */
 void DisplayMatrix::clearBrand() {
   brandAlarmActive = false;
   brandTextShown = false;
@@ -77,11 +99,19 @@ void DisplayMatrix::clearBrand() {
   display.displayReset();
 }
 
+/**
+ * @brief 
+ * Deze functie zet het Matrixdisplay aan.
+ */
 void DisplayMatrix::on() {
   if (brandAlarmActive) return;
   active = true;
 }
 
+/**
+ * @brief 
+ * Deze functie zet het Matrixdisplay uit.
+ */
 void DisplayMatrix::off() {
   if (brandAlarmActive) return;
 
@@ -89,10 +119,16 @@ void DisplayMatrix::off() {
   display.displayClear();
   display.displayReset();
 }
-
+/**
+ * @brief 
+ * Deze functie verwerkt inkomende commando's voor het Matrixdisplay. Het controleert het commando en voert de bijbehorende actie uit.
+ * 
+ * @param msg 
+ * @param client 
+ */
 void DisplayMatrix::handleCommand(const String& msg, WiFiClient& client) {
   String command = msg;
-  command.trim();  // verwijdert \n en \r
+  command.trim();
 
   int sep = command.indexOf(':');
   if (sep != -1) {

@@ -1,26 +1,23 @@
 #include <ESP8266WiFi.h>
 #include "BedSensor.h"
 
-
-
 extern WiFiClient client;
 
-
 /**
- * @brief Construct a new Bed Sensor:: Bed Sensor object
+ * @brief Construeert een nieuw BedSensor:: BedSensor object.
  * 
- * @param pin 
+ * @param pin Het pin waar de bed sensor op aangesloten is
  */
 BedSensor::BedSensor(int pin) {
   sensorPin = pin;
   bedPressure = false;
 }
+
 /**
- * @brief Returns if there is something measured on the bed pressure sensor.
- * Only when the return value is higher than 500 (to ignore random, small pressures).
+ * @brief Leest de waarde van de bed sensor.
  * 
- * @return true 
- * @return false 
+ * @return true Als er druk op de bed sensor is en groter is dan 500 (drempelwaarde).
+ * @return false Als er geen druk op de bed sensor is of als de waarde kleiner is dan of gelijk aan 500 (drempelwaarde).
  */
 bool BedSensor::read() {
   sensorValue = analogRead(sensorPin);
@@ -28,11 +25,11 @@ bool BedSensor::read() {
 }
 
 /**
- * @brief Checks if the status has changed
+ * @brief Controlleert of de status van de bed sensor is veranderd sinds de laatste keer dat deze functie is aangeroepen.
  * 
- * @param newValue 
- * @return true 
- * @return false 
+ * @param newValue De nieuwe waarde van de bed sensor.
+ * @return true Als de status is veranderd.
+ * @return false Als de status niet is veranderd.
  */
 bool BedSensor::hasChanged(bool newValue) {
   if (newValue != bedPressure) {
@@ -43,8 +40,8 @@ bool BedSensor::hasChanged(bool newValue) {
 }
 
 /**
- * @brief If the status has changed there will be send a message to the serial.
- * In the future this will send a message to the Pi.
+ * @brief Update de status van de bed sensor en stuurt een 
+ * bericht naar de client als er een verandering is in de status van de bed sensor.
  * 
  */
 void BedSensor::update() {
